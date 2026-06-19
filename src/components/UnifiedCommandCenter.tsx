@@ -746,7 +746,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
       try {
         // Health-check the cached map instance:
-        // After HMR or navigate-away/back the container div can become detached.
+        // After HMR or route navigation the container div can become detached.
         if (globalMap) {
           try {
             const container = globalMap.getContainer();
@@ -757,7 +757,6 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
               cachedMapDiv = null;
             }
           } catch {
-            // getContainer() can throw if the map is already removed
             globalMap = null;
             globalLayer = null;
             cachedMapDiv = null;
@@ -766,17 +765,26 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
         if (!cachedMapDiv) {
           cachedMapDiv = document.createElement("div");
-          cachedMapDiv.style.width = "100%";
-          cachedMapDiv.style.height = "100%";
+          // Absolute fill so Leaflet measures real parent dimensions on init
+          cachedMapDiv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
+        }
+
+        // Always re-attach to the current elRef so the div is in the DOM
+        // BEFORE Leaflet initialises (so it can measure real dimensions).
+        if (elRef.current) {
+          elRef.current.style.position = "relative";
+          elRef.current.innerHTML = "";
+          elRef.current.appendChild(cachedMapDiv);
         }
 
         if (!globalMap) {
           // Guard against Leaflet "Map container is already initialized" error
-          // which occurs when an HMR reload reuses a div that still has _leaflet_id.
+          // which occurs when HMR reloads a div that still has _leaflet_id set.
           if ((cachedMapDiv as any)._leaflet_id) {
             cachedMapDiv = document.createElement("div");
-            cachedMapDiv.style.width = "100%";
-            cachedMapDiv.style.height = "100%";
+            cachedMapDiv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
+            elRef.current!.innerHTML = "";
+            elRef.current!.appendChild(cachedMapDiv);
           }
 
           globalL = L;
@@ -793,22 +801,14 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         mapRef.current = globalMap;
         layerRef.current = globalLayer;
 
-        if (elRef.current) {
-          elRef.current.innerHTML = "";
-          elRef.current.appendChild(cachedMapDiv);
-        }
-
-        // Trigger redraw/invalidate to match the container's current dimensions
-        setTimeout(() => {
-          if (!cancelled && globalMap) {
-            globalMap.invalidateSize();
-          }
-        }, 100);
+        // Fire invalidateSize at two intervals to guarantee the tiles render
+        // regardless of how quickly the CSS layout settles.
+        setTimeout(() => { if (!cancelled && globalMap) globalMap.invalidateSize(); }, 50);
+        setTimeout(() => { if (!cancelled && globalMap) globalMap.invalidateSize(); }, 300);
 
         drawMapElements();
       } catch (err) {
         console.error("[Map] Initialization failed, resetting stale state:", err);
-        // Tear down everything so the next mount attempt starts completely fresh
         try { globalMap?.remove(); } catch { /* ignore */ }
         globalMap = null;
         globalLayer = null;
@@ -827,6 +827,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       }
     };
   }, []);
+
 
 
   // Redraw when variables change
