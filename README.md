@@ -12,8 +12,7 @@ $env:SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 ## Install Dependencies
 
 ```bash
-npm install --legacy-peer-deps
-npm install -D @types/leaflet
+npm install -D @types/leaflet --legacy-peer-deps
 ```
 
 ## Run the Project

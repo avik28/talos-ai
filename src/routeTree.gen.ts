@@ -14,6 +14,7 @@ import { Route as SimulatorRouteImport } from './routes/simulator'
 import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as IncidentsRouteImport } from './routes/incidents'
+import { Route as DiversionsRouteImport } from './routes/diversions'
 import { Route as DeploymentRouteImport } from './routes/deployment'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -42,6 +43,11 @@ const IncidentsRoute = IncidentsRouteImport.update({
   path: '/incidents',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiversionsRoute = DiversionsRouteImport.update({
+  id: '/diversions',
+  path: '/diversions',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DeploymentRoute = DeploymentRouteImport.update({
   id: '/deployment',
   path: '/deployment',
@@ -56,6 +62,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
   '/resources': typeof ResourcesRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
   '/resources': typeof ResourcesRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
   '/resources': typeof ResourcesRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/deployment'
+    | '/diversions'
     | '/incidents'
     | '/planner'
     | '/resources'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/deployment'
+    | '/diversions'
     | '/incidents'
     | '/planner'
     | '/resources'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/deployment'
+    | '/diversions'
     | '/incidents'
     | '/planner'
     | '/resources'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeploymentRoute: typeof DeploymentRoute
+  DiversionsRoute: typeof DiversionsRoute
   IncidentsRoute: typeof IncidentsRoute
   PlannerRoute: typeof PlannerRoute
   ResourcesRoute: typeof ResourcesRoute
@@ -158,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IncidentsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/diversions': {
+      id: '/diversions'
+      path: '/diversions'
+      fullPath: '/diversions'
+      preLoaderRoute: typeof DiversionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deployment': {
       id: '/deployment'
       path: '/deployment'
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeploymentRoute: DeploymentRoute,
+  DiversionsRoute: DiversionsRoute,
   IncidentsRoute: IncidentsRoute,
   PlannerRoute: PlannerRoute,
   ResourcesRoute: ResourcesRoute,
