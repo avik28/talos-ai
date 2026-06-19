@@ -51,6 +51,7 @@ function DiversionsPage() {
   const [bootstrapComplete, setBootstrapComplete] = useState<boolean>(false);
   const [bootstrapLogs, setBootstrapLogs] = useState<string[]>([]);
   const [logIndex, setLogIndex] = useState<number>(0);
+  const [osrmGeometries, setOsrmGeometries] = useState<Record<string, [number, number][]>>({});
 
   // Map Refs
   const elRef = useRef<HTMLDivElement>(null);
@@ -61,6 +62,75 @@ function DiversionsPage() {
   const selectedCorridor = useMemo(() => {
     return corridors.find((c) => c.id === selectedCorridorId) || corridors[0];
   }, [corridors, selectedCorridorId]);
+
+  // Fetch coordinates for the selected corridor's routes to snap them to actual roads
+  useEffect(() => {
+    if (!selectedCorridor) return;
+
+    const fetchCorridorGeometries = async () => {
+      const activeCorridor = selectedCorridor;
+      const newGeometries = { ...osrmGeometries };
+      let updated = false;
+
+      const fetchRoute = async (routeId: string, pts: [number, number][]) => {
+        // Build a unique cache key that includes the routing settings
+        const cacheKey = `${routeId}_r${rain}_p${peakHour}_o${deployedOfficers}_c${closedRoads.join(",")}`;
+        if (newGeometries[cacheKey]) {
+          newGeometries[routeId] = newGeometries[cacheKey];
+          return;
+        }
+
+        try {
+          // 1. Try local FastAPI server first
+          const res = await fetch("http://localhost:8000/api/route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ waypoints: pts })
+          });
+          const data = await res.json();
+          if (data.points && data.points.length > 0) {
+            newGeometries[cacheKey] = data.points;
+            newGeometries[routeId] = data.points;
+            updated = true;
+            return;
+          }
+        } catch (e) {
+          console.warn("Local FastAPI route service unavailable, falling back to OSRM...", e);
+        }
+
+        // 2. Fall back to OSRM
+        try {
+          const coordsStr = pts.map(p => `${p[1]},${p[0]}`).join(";");
+          const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+          const res = await fetch(url);
+          const data = await res.json();
+          if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+            const roadPoints = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]);
+            newGeometries[cacheKey] = roadPoints;
+            newGeometries[routeId] = roadPoints;
+            updated = true;
+          }
+        } catch (e) {
+          console.error("OSRM fetch failed for route", routeId, e);
+        }
+      };
+
+      const promises: Promise<void>[] = [];
+      (["alpha", "beta", "gamma"] as const).forEach(stack => {
+        activeCorridor.stacks[stack].forEach(route => {
+          promises.push(fetchRoute(route.id, route.points));
+        });
+      });
+
+      await Promise.all(promises);
+      if (updated) {
+        setOsrmGeometries(newGeometries);
+      }
+    };
+
+    fetchCorridorGeometries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCorridorId, rain, peakHour, deployedOfficers, closedRoads]);
 
   // Run Bootstrap logs simulation on mount
   useEffect(() => {
@@ -127,7 +197,7 @@ function DiversionsPage() {
   useEffect(() => {
     drawMapElements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCorridor, activeStackType, closedRoads, bootstrapComplete]);
+  }, [selectedCorridor, activeStackType, closedRoads, bootstrapComplete, osrmGeometries]);
 
   // Map drawing helper
   function drawMapElements() {
@@ -172,7 +242,9 @@ function DiversionsPage() {
         dashArray = "4, 6";
       }
 
-      L.polyline(route.points, {
+      const pointsToDraw = osrmGeometries[route.id] || route.points;
+
+      L.polyline(pointsToDraw, {
         color,
         weight: isPrimary ? 6 : 4,
         opacity,
@@ -255,44 +327,97 @@ function DiversionsPage() {
   }
 
   // Run What-If command
-  function runQuery(cmd: string) {
+  async function runQuery(cmd: string) {
     if (!cmd.trim()) return;
 
     setConsoleMessages((prev) => [...prev, { sender: "user", text: cmd }]);
     
-    // Parse What-If query
-    const res = parseWhatIfQuery(cmd, { closedRoads, deployedOfficers });
+    // Get the waypoints for the current default route to use for routing projection
+    const activeStack = selectedCorridor.stacks[activeStackType];
+    const activeRoute = activeStack[0];
+    const currentPoints = activeRoute.points;
 
-    // Update state based on parsed parameters
-    if (cmd.toLowerCase().includes("close mg road") || cmd.toLowerCase().includes("mg road closed")) {
-      if (!closedRoads.includes("MG Road")) {
-        setClosedRoads((prev) => [...prev, "MG Road"]);
+    try {
+      const response = await fetch("http://localhost:8000/api/what-if", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: cmd,
+          waypoints: currentPoints,
+          closedRoads: closedRoads,
+          variables: {
+            rain,
+            peakHour,
+            deployedOfficers
+          }
+        })
+      });
+      const data = await response.json();
+      
+      // Update state based on backend response
+      if (data.closedRoads) {
+        setClosedRoads(data.closedRoads);
       }
-    }
-    if (cmd.toLowerCase().includes("close gate 3") || cmd.toLowerCase().includes("gate 3 exit closed")) {
-      if (!closedRoads.includes("Gate 3 Exit")) {
-        setClosedRoads((prev) => [...prev, "Gate 3 Exit"]);
+      if (data.officersDeployed !== undefined) {
+        setDeployedOfficers(data.officersDeployed);
       }
-    }
-    if (cmd.toLowerCase().includes("convert queens road") || cmd.toLowerCase().includes("queens road one-way")) {
-      if (!closedRoads.includes("Queens Road")) {
-        setClosedRoads((prev) => [...prev, "Queens Road"]);
+      
+      // If backend returned points, update osrmGeometries for this route to show the diversion path!
+      if (data.points && data.points.length > 0) {
+        setOsrmGeometries((prev) => ({
+          ...prev,
+          [activeRoute.id]: data.points
+        }));
       }
-    }
 
-    const officerMatch = cmd.match(/(?:deploy|place|add|use)\s+(\d+)\s+officer/i) || 
-                         cmd.match(/(\d+)\s+officer/i);
-    if (officerMatch) {
-      setDeployedOfficers(parseInt(officerMatch[1], 10));
-    }
+      setQueryResponse({
+        queryMatched: data.queryMatched,
+        title: data.title,
+        congestionBefore: data.congestionBefore,
+        congestionAfter: data.congestionAfter,
+        delayBefore: data.delayBefore,
+        delayAfter: data.delayAfter,
+        officersDeployed: data.officersDeployed,
+        spilloverImpact: data.spilloverImpact,
+        recommendations: data.recommendations,
+        description: data.description
+      });
 
-    setTimeout(() => {
+      setConsoleMessages((prev) => [
+        ...prev,
+        { sender: "system", text: `Scenario Projection Generated: ${data.title}. Congestion: ${data.congestionBefore}% → ${data.congestionAfter}%. ${data.description}` }
+      ]);
+    } catch (error) {
+      console.error("FastAPI what-if call failed, falling back to local mock...", error);
+      // Fallback to local parsing if server is offline
+      const res = parseWhatIfQuery(cmd, { closedRoads, deployedOfficers });
+      // Update state based on parsed parameters
+      if (cmd.toLowerCase().includes("close mg road") || cmd.toLowerCase().includes("mg road closed")) {
+        if (!closedRoads.includes("MG Road")) {
+          setClosedRoads((prev) => [...prev, "MG Road"]);
+        }
+      }
+      if (cmd.toLowerCase().includes("close gate 3") || cmd.toLowerCase().includes("gate 3 exit closed")) {
+        if (!closedRoads.includes("Gate 3 Exit")) {
+          setClosedRoads((prev) => [...prev, "Gate 3 Exit"]);
+        }
+      }
+      if (cmd.toLowerCase().includes("convert queens road") || cmd.toLowerCase().includes("queens road one-way")) {
+        if (!closedRoads.includes("Queens Road")) {
+          setClosedRoads((prev) => [...prev, "Queens Road"]);
+        }
+      }
+      const officerMatch = cmd.match(/(?:deploy|place|add|use)\s+(\d+)\s+officer/i) || 
+                           cmd.match(/(\d+)\s+officer/i);
+      if (officerMatch) {
+        setDeployedOfficers(parseInt(officerMatch[1], 10));
+      }
       setQueryResponse(res);
       setConsoleMessages((prev) => [
         ...prev,
-        { sender: "system", text: `Scenario Projection Generated: ${res.title}. Congestion change: ${res.congestionBefore}% → ${res.congestionAfter}%. ${res.description}` }
+        { sender: "system", text: `[FALLBACK] Scenario Projection Generated: ${res.title}. Congestion: ${res.congestionBefore}% → ${res.congestionAfter}%. ${res.description}` }
       ]);
-    }, 300);
+    }
 
     setCommandInput("");
   }
