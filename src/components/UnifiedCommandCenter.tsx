@@ -744,40 +744,80 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       await import("leaflet/dist/leaflet.css");
       if (cancelled || !elRef.current) return;
 
-      if (!cachedMapDiv) {
-        cachedMapDiv = document.createElement("div");
-        cachedMapDiv.style.width = "100%";
-        cachedMapDiv.style.height = "100%";
-      }
-
-      if (!globalMap) {
-        globalL = L;
-        const map = L.map(cachedMapDiv, { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-          maxZoom: 19,
-        }).addTo(map);
-
-        globalMap = map;
-        globalLayer = L.layerGroup().addTo(map);
-      }
-
-      LRef.current = globalL;
-      mapRef.current = globalMap;
-      layerRef.current = globalLayer;
-
-      if (elRef.current) {
-        elRef.current.innerHTML = "";
-        elRef.current.appendChild(cachedMapDiv);
-      }
-
-      // Trigger redraw/invalidate to match the container's current dimensions
-      setTimeout(() => {
-        if (!cancelled && globalMap) {
-          globalMap.invalidateSize();
+      try {
+        // Health-check the cached map instance:
+        // After HMR or navigate-away/back the container div can become detached.
+        if (globalMap) {
+          try {
+            const container = globalMap.getContainer();
+            if (!container || !container.isConnected) {
+              globalMap.remove();
+              globalMap = null;
+              globalLayer = null;
+              cachedMapDiv = null;
+            }
+          } catch {
+            // getContainer() can throw if the map is already removed
+            globalMap = null;
+            globalLayer = null;
+            cachedMapDiv = null;
+          }
         }
-      }, 100);
 
-      drawMapElements();
+        if (!cachedMapDiv) {
+          cachedMapDiv = document.createElement("div");
+          cachedMapDiv.style.width = "100%";
+          cachedMapDiv.style.height = "100%";
+        }
+
+        if (!globalMap) {
+          // Guard against Leaflet "Map container is already initialized" error
+          // which occurs when an HMR reload reuses a div that still has _leaflet_id.
+          if ((cachedMapDiv as any)._leaflet_id) {
+            cachedMapDiv = document.createElement("div");
+            cachedMapDiv.style.width = "100%";
+            cachedMapDiv.style.height = "100%";
+          }
+
+          globalL = L;
+          const map = L.map(cachedMapDiv, { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+            maxZoom: 19,
+          }).addTo(map);
+
+          globalMap = map;
+          globalLayer = L.layerGroup().addTo(map);
+        }
+
+        LRef.current = globalL;
+        mapRef.current = globalMap;
+        layerRef.current = globalLayer;
+
+        if (elRef.current) {
+          elRef.current.innerHTML = "";
+          elRef.current.appendChild(cachedMapDiv);
+        }
+
+        // Trigger redraw/invalidate to match the container's current dimensions
+        setTimeout(() => {
+          if (!cancelled && globalMap) {
+            globalMap.invalidateSize();
+          }
+        }, 100);
+
+        drawMapElements();
+      } catch (err) {
+        console.error("[Map] Initialization failed, resetting stale state:", err);
+        // Tear down everything so the next mount attempt starts completely fresh
+        try { globalMap?.remove(); } catch { /* ignore */ }
+        globalMap = null;
+        globalLayer = null;
+        globalL = null;
+        cachedMapDiv = null;
+        LRef.current = null;
+        mapRef.current = null;
+        layerRef.current = null;
+      }
     })();
 
     return () => {
@@ -787,6 +827,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       }
     };
   }, []);
+
 
   // Redraw when variables change
   useEffect(() => {

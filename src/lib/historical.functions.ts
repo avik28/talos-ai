@@ -93,19 +93,25 @@ function parseDatasetCsv(csv: string): SupabaseIncident[] {
 }
 
 export const fetchHistoricalData = createServerFn({ method: "GET" }).handler(async () => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const [incidents, stations, plans] = await Promise.all([
-      fetchSupabaseIncidents(),
-      fetchSupabasePoliceStations(),
-      fetchSupabaseEventPlans(),
-    ]);
+  // IMPORTANT: this runs on the server (SSR). It must NEVER throw — any
+  // uncaught exception here causes the "This page didn't load" 500 error.
+  try {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      const [incidents, stations, plans] = await Promise.all([
+        fetchSupabaseIncidents(),
+        fetchSupabasePoliceStations(),
+        fetchSupabaseEventPlans(),
+      ]);
 
-    return {
-      source: "supabase",
-      incidents,
-      stations,
-      plans,
-    };
+      return {
+        source: "supabase" as const,
+        incidents,
+        stations,
+        plans,
+      };
+    }
+  } catch (supabaseError) {
+    console.warn("[fetchHistoricalData] Supabase fetch failed, falling back to CSV:", supabaseError);
   }
 
   try {
@@ -113,17 +119,19 @@ export const fetchHistoricalData = createServerFn({ method: "GET" }).handler(asy
     const contents = await fs.readFile(filePath, "utf8");
     const incidents = parseDatasetCsv(contents);
     return {
-      source: "dataset",
+      source: "dataset" as const,
       incidents,
       stations: [],
       plans: [],
     };
-  } catch (error) {
+  } catch (csvError) {
+    console.warn("[fetchHistoricalData] CSV fallback also failed:", csvError);
     return {
-      source: "none",
+      source: "none" as const,
       incidents: [],
       stations: [],
       plans: [],
     };
   }
 });
+
