@@ -59,6 +59,12 @@ function resolveVar(token: string): string {
   return val || "#f5a623";
 }
 
+// Global cache for persistent map component (prevents reloading on route changes)
+let cachedMapDiv: HTMLDivElement | null = null;
+let globalMap: any = null;
+let globalLayer: any = null;
+let globalL: any = null;
+
 export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) {
   const navigate = useNavigate();
 
@@ -167,13 +173,87 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     setSelectedIncidentId(demo[0].id);
   }
 
+  // Helper to generate a dynamic corridor around the active incident
+  function generateDynamicCorridor(incident: Incident): Corridor {
+    const place = ALL_PLACES.find(p => incident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+    const incLat = place.lat;
+    const incLng = place.lng;
+
+    // Use hash of incident ID to vary angles (0, 45, 90, 135 degrees)
+    const idNum = parseInt(incident.id.replace(/\D/g, "")) || 0;
+    const angleDeg = [0, 45, 90, 135][idNum % 4];
+    const phi = (angleDeg * Math.PI) / 180;
+
+    // Calculate start/end on 3km circumference (opposite ends of the incident area)
+    const rLat = 0.027;
+    const rLng = 0.02775;
+
+    const startPt: [number, number] = [incLat - rLat * Math.cos(phi), incLng - rLng * Math.sin(phi)];
+    const endPt: [number, number] = [incLat + rLat * Math.cos(phi), incLng + rLng * Math.sin(phi)];
+
+    // Calculate waypoints offset perpendicular to the center by 1.8km
+    const perpPhi = phi + Math.PI / 2;
+    const wp2: [number, number] = [incLat + 0.018 * Math.cos(perpPhi), incLng + 0.018 * Math.sin(perpPhi)];
+    const wp3: [number, number] = [incLat - 0.018 * Math.cos(perpPhi), incLng - 0.018 * Math.sin(perpPhi)];
+
+    // Generate stacks
+    const generateRoutes = (prefix: string, timeFactor: number): Route[] => [
+      {
+        id: `${prefix}_r1`,
+        name: "Route A · Direct Detour",
+        points: [startPt, endPt],
+        distanceKm: 6.0,
+        crossStreets: 8,
+        strikes: 0,
+        status: "Active",
+        baseTimeMin: Math.round(18 * timeFactor),
+      },
+      {
+        id: `${prefix}_r2`,
+        name: "Route B · Parallel Eastern/Northern Bypass",
+        points: [startPt, wp2, endPt],
+        distanceKm: 7.8,
+        crossStreets: 12,
+        strikes: 0,
+        status: "Active",
+        baseTimeMin: Math.round(24 * timeFactor),
+      },
+      {
+        id: `${prefix}_r3`,
+        name: "Route C · Parallel Western/Southern Bypass",
+        points: [startPt, wp3, endPt],
+        distanceKm: 8.4,
+        crossStreets: 10,
+        strikes: 0,
+        status: "Active",
+        baseTimeMin: Math.round(28 * timeFactor),
+      }
+    ];
+
+    return {
+      id: "incident_corridor",
+      name: `${incident.kind} Corridor`,
+      zone: place.area || "Active Incident Zone",
+      lat: incLat,
+      lng: incLng,
+      baseLoad: place.baseLoad || 0.75,
+      baselineClearanceMin: incident.severity === "Critical" ? 60 : incident.severity === "High" ? 45 : 30,
+      stacks: {
+        alpha: generateRoutes("alpha", 1.0),
+        beta: generateRoutes("beta", 1.4),
+        gamma: generateRoutes("gamma", 1.8),
+      }
+    };
+  }
+
   // Auto-drive simulation variables when incident context changes
   useEffect(() => {
     if (!selectedIncident) return;
     
-    // 1. Auto-derive corridor
-    const corridorId = getCorridorFromIncident(selectedIncident);
-    setSelectedCorridorId(corridorId);
+    // 1. Auto-derive corridor dynamically around the active incident
+    const dynCorridor = generateDynamicCorridor(selectedIncident);
+    setCorridors([dynCorridor]);
+    setSelectedCorridorId("incident_corridor");
 
     // 2. Auto-derive rain weather
     const isRain = selectedIncident.kind === "Waterlogging";
@@ -379,10 +459,39 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         }
 
         try {
+          const mappedClosedRoads = effectiveClosedRoads.map((roadName) => {
+            const place = ALL_PLACES.find((p) => p.name.toLowerCase() === roadName.toLowerCase());
+            return {
+              name: roadName,
+              lat: place ? place.lat : null,
+              lng: place ? place.lng : null
+            };
+          });
+
+          // Always ensure the selected incident itself is blocked in the routing engine
+          if (selectedIncident) {
+            const place = ALL_PLACES.find(p => selectedIncident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+            if (!mappedClosedRoads.some(r => r.lat === place.lat && r.lng === place.lng)) {
+              mappedClosedRoads.push({
+                name: selectedIncident.kind,
+                lat: place.lat,
+                lng: place.lng
+              });
+            }
+          }
+
           const res = await fetch("http://localhost:8000/api/route", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ waypoints: pts })
+            body: JSON.stringify({
+              waypoints: pts,
+              closedRoads: mappedClosedRoads,
+              variables: {
+                rain,
+                peakHour,
+                deployedOfficers
+              }
+            })
           });
           const data = await res.json();
           if (data.points && data.points.length > 0) {
@@ -425,7 +534,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     };
 
     fetchCorridorGeometries();
-  }, [selectedCorridorId, rain, peakHour, deployedOfficers, effectiveClosedRoads]);
+  }, [selectedCorridorId, selectedCorridor, rain, peakHour, deployedOfficers, effectiveClosedRoads]);
 
   // Run Bootstrap logs simulation on mount
   useEffect(() => {
@@ -615,8 +724,8 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         });
       }
 
-      // Fly map to active focus
-      map.flyTo([selectedCorridor.lat, selectedCorridor.lng], 13.8, { duration: 0.8 });
+      // Fly map to active focus — zoom 12.5 fits the full 3km-radius detour corridor
+      map.flyTo([selectedCorridor.lat, selectedCorridor.lng], 12.5, { duration: 0.8 });
     }
   }
 
@@ -633,19 +742,50 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     (async () => {
       const L = (await import("leaflet")).default;
       await import("leaflet/dist/leaflet.css");
-      if (cancelled || !elRef.current || mapRef.current) return;
-      LRef.current = L;
+      if (cancelled || !elRef.current) return;
 
-      const map = L.map(elRef.current, { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-      }).addTo(map);
+      if (!cachedMapDiv) {
+        cachedMapDiv = document.createElement("div");
+        cachedMapDiv.style.width = "100%";
+        cachedMapDiv.style.height = "100%";
+      }
 
-      mapRef.current = map;
-      layerRef.current = L.layerGroup().addTo(map);
+      if (!globalMap) {
+        globalL = L;
+        const map = L.map(cachedMapDiv, { zoomControl: true, attributionControl: false }).setView([12.9716, 77.5946], 12);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+          maxZoom: 19,
+        }).addTo(map);
+
+        globalMap = map;
+        globalLayer = L.layerGroup().addTo(map);
+      }
+
+      LRef.current = globalL;
+      mapRef.current = globalMap;
+      layerRef.current = globalLayer;
+
+      if (elRef.current) {
+        elRef.current.innerHTML = "";
+        elRef.current.appendChild(cachedMapDiv);
+      }
+
+      // Trigger redraw/invalidate to match the container's current dimensions
+      setTimeout(() => {
+        if (!cancelled && globalMap) {
+          globalMap.invalidateSize();
+        }
+      }, 100);
+
       drawMapElements();
     })();
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      if (cachedMapDiv && cachedMapDiv.parentNode) {
+        cachedMapDiv.parentNode.removeChild(cachedMapDiv);
+      }
+    };
   }, []);
 
   // Redraw when variables change
@@ -665,19 +805,42 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     const currentPoints = activeRoute.points;
 
     try {
+      const mappedClosedRoads = effectiveClosedRoads.map((roadName) => {
+        const place = ALL_PLACES.find((p) => p.name.toLowerCase() === roadName.toLowerCase());
+        return {
+          name: roadName,
+          lat: place ? place.lat : null,
+          lng: place ? place.lng : null
+        };
+      });
+
+      // Always ensure the selected incident itself is blocked in the routing engine
+      if (selectedIncident) {
+        const place = ALL_PLACES.find(p => selectedIncident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+        if (!mappedClosedRoads.some(r => r.lat === place.lat && r.lng === place.lng)) {
+          mappedClosedRoads.push({
+            name: selectedIncident.kind,
+            lat: place.lat,
+            lng: place.lng
+          });
+        }
+      }
+
       const response = await fetch("http://localhost:8000/api/what-if", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: cmd,
           waypoints: currentPoints,
-          closedRoads: effectiveClosedRoads,
+          closedRoads: mappedClosedRoads,
           variables: { rain, peakHour, deployedOfficers }
         })
       });
       const data = await response.json();
       
-      if (data.closedRoads) setClosedRoads(data.closedRoads);
+      if (data.closedRoads) {
+        setClosedRoads(data.closedRoads.map((cr: any) => cr.name));
+      }
       if (data.officersDeployed !== undefined) setDeployedOfficers(data.officersDeployed);
       
       if (data.points && data.points.length > 0) {
@@ -764,13 +927,13 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   }
 
   function resetSimulation() {
-    setCorridors(INITIAL_CORRIDORS);
     setClosedRoads([]);
     setQueryResponse(null);
     setOsrmGeometries({});
     if (selectedIncident) {
-      const corridorId = getCorridorFromIncident(selectedIncident);
-      setSelectedCorridorId(corridorId);
+      const dynCorridor = generateDynamicCorridor(selectedIncident);
+      setCorridors([dynCorridor]);
+      setSelectedCorridorId("incident_corridor");
       const isRain = selectedIncident.kind === "Waterlogging";
       setRain(isRain);
       const hour = new Date(selectedIncident.createdAt).getHours();
@@ -787,7 +950,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       }
       setActiveStackType(stack);
     } else {
-      setSelectedCorridorId("mg_road");
+      setSelectedCorridorId("incident_corridor");
       setRain(false);
       setPeakHour(false);
       setDeployedOfficers(0);
@@ -966,7 +1129,9 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                   <Terminal className="size-4 text-success" />
                   <h2 className="text-sm font-bold uppercase tracking-wide">What-If Console</h2>
                 </div>
-                <HelpCircle className="size-4 text-muted-foreground cursor-pointer" title="Simulate variables by typing questions." />
+                <span title="Simulate variables by typing questions.">
+                  <HelpCircle className="size-4 text-muted-foreground cursor-pointer" />
+                </span>
               </div>
               
               <div className="mb-4 h-36 overflow-y-auto rounded-lg border border-border bg-background/80 p-3 text-mono text-[11px] leading-relaxed flex flex-col gap-2">
