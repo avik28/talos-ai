@@ -50,7 +50,16 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_a1",
           name: "Route A · MG-Cubbon-Richmond (Default)",
-          points: [[12.9736, 77.6074], [12.9786, 77.6006], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9742, 77.6015],
+            [12.9749, 77.5972],
+            [12.9780, 77.5970],
+            [12.9786, 77.6006],
+            [12.9745, 77.6010],
+            [12.9640, 77.5960],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 2.8,
           crossStreets: 5,
           strikes: 0,
@@ -60,7 +69,16 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_a2",
           name: "Route B · Infantry Bypass (Fallback 1)",
-          points: [[12.9736, 77.6074], [12.9786, 77.5966], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9742, 77.6015],
+            [12.9775, 77.6010],
+            [12.9790, 77.6000],
+            [12.9810, 77.5950],
+            [12.9760, 77.5960],
+            [12.9690, 77.5940],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 3.2,
           crossStreets: 4,
           strikes: 0,
@@ -70,7 +88,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_a3",
           name: "Route C · Richmond Circle Direct (Fallback 2)",
-          points: [[12.9736, 77.6074], [12.9626, 77.5986], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9700, 77.6065],
+            [12.9680, 77.6010],
+            [12.9650, 77.5980],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 2.4,
           crossStreets: 3,
           strikes: 0,
@@ -82,7 +106,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_b1",
           name: "Route Beta-1 · Wet-Weather Primary",
-          points: [[12.9736, 77.6074], [12.9706, 77.6006], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9700, 77.6065],
+            [12.9680, 77.6000],
+            [12.9640, 77.5960],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 3.0,
           crossStreets: 6,
           strikes: 0,
@@ -92,7 +122,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_b2",
           name: "Route Beta-2 · Elevated Flyover Bypass",
-          points: [[12.9736, 77.6074], [12.9836, 77.5966], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9742, 77.6015],
+            [12.9749, 77.5972],
+            [12.9690, 77.5940],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 3.6,
           crossStreets: 4,
           strikes: 0,
@@ -102,7 +138,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_b3",
           name: "Route Beta-3 · Staggered Commercial Exit",
-          points: [[12.9736, 77.6074], [12.9626, 77.6101], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9775, 77.6070],
+            [12.9786, 77.6006],
+            [12.9730, 77.6010],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 3.4,
           crossStreets: 5,
           strikes: 0,
@@ -114,7 +156,14 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_g1",
           name: "Route Gamma-1 · Event-Specific Staggered (Chinnaswamy)",
-          points: [[12.9736, 77.6074], [12.9816, 77.6056], [12.9786, 77.5966], [12.9626, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9742, 77.6015],
+            [12.9785, 77.5996],
+            [12.9786, 77.6006],
+            [12.9760, 77.5960],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 3.8,
           crossStreets: 8,
           strikes: 0,
@@ -124,7 +173,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_g2",
           name: "Route Gamma-2 · Radial Outer Ring Exit",
-          points: [[12.9736, 77.6074], [12.9784, 77.6101], [12.9716, 77.5946]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9775, 77.6070],
+            [12.9784, 77.6101],
+            [12.9750, 77.6050],
+            [12.9716, 77.5946]
+          ],
           distanceKm: 4.2,
           crossStreets: 7,
           strikes: 0,
@@ -134,7 +189,12 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "mg_g3",
           name: "Route Gamma-3 · Queens Road Radial Flow",
-          points: [[12.9736, 77.6074], [12.9836, 77.5966], [12.9786, 77.5806]],
+          points: [
+            [12.9736, 77.6074],
+            [12.9742, 77.6015],
+            [12.9749, 77.5972],
+            [12.9836, 77.5966]
+          ],
           distanceKm: 4.0,
           crossStreets: 6,
           strikes: 0,
@@ -157,7 +217,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_a1",
           name: "Route A · Ring Road Flyover (Default)",
-          points: [[13.0358, 77.5970], [13.0234, 77.5806], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0300, 77.5950],
+            [13.0234, 77.5806],
+            [13.0100, 77.5850],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 4.5,
           crossStreets: 4,
           strikes: 0,
@@ -167,7 +233,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_a2",
           name: "Route B · RT Nagar Bypass (Fallback 1)",
-          points: [[13.0358, 77.5970], [13.0180, 77.5920], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0290, 77.5950],
+            [13.0200, 77.5930],
+            [13.0180, 77.5920],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 4.8,
           crossStreets: 6,
           strikes: 0,
@@ -177,7 +249,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_a3",
           name: "Route C · Mekhri Circle Service (Fallback 2)",
-          points: [[13.0358, 77.5970], [13.0064, 77.5806], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0250, 77.5900],
+            [13.0100, 77.5850],
+            [13.0064, 77.5806],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 4.2,
           crossStreets: 5,
           strikes: 0,
@@ -189,7 +267,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_b1",
           name: "Route Beta-1 · Heavy Flood Bypass",
-          points: [[13.0358, 77.5970], [13.0450, 77.5900], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0450, 77.5900],
+            [13.0380, 77.5800],
+            [13.0200, 77.5850],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 5.2,
           crossStreets: 7,
           strikes: 0,
@@ -199,7 +283,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_b2",
           name: "Route Beta-2 · Bellary Road Outbound link",
-          points: [[13.0358, 77.5970], [13.0234, 77.5512], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0290, 77.5950],
+            [13.0234, 77.5512],
+            [13.0100, 77.5700],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 6.0,
           crossStreets: 5,
           strikes: 0,
@@ -209,7 +299,12 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_b3",
           name: "Route Beta-3 · Service Lane Merge Control",
-          points: [[13.0358, 77.5970], [13.0290, 77.5950], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0290, 77.5950],
+            [13.0150, 77.5920],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 4.6,
           crossStreets: 6,
           strikes: 0,
@@ -221,7 +316,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_g1",
           name: "Route Gamma-1 · Palace Grounds Rally Loop",
-          points: [[13.0358, 77.5970], [13.0048, 77.5905], [13.0064, 77.5806]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0200, 77.5930],
+            [13.0100, 77.5910],
+            [13.0048, 77.5905],
+            [13.0064, 77.5806]
+          ],
           distanceKm: 5.5,
           crossStreets: 8,
           strikes: 0,
@@ -231,7 +332,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_g2",
           name: "Route Gamma-2 · Hennur Outer Diversion",
-          points: [[13.0358, 77.5970], [13.0380, 77.6200], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0380, 77.6200],
+            [13.0250, 77.6100],
+            [13.0120, 77.6000],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 6.8,
           crossStreets: 9,
           strikes: 0,
@@ -241,7 +348,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "heb_g3",
           name: "Route Gamma-3 · Manyata Tech Park Bypass",
-          points: [[13.0358, 77.5970], [13.0450, 77.6250], [13.0048, 77.5905]],
+          points: [
+            [13.0358, 77.5970],
+            [13.0450, 77.6250],
+            [13.0300, 77.6150],
+            [13.0100, 77.6000],
+            [13.0048, 77.5905]
+          ],
           distanceKm: 7.2,
           crossStreets: 8,
           strikes: 0,
@@ -264,7 +377,14 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_a1",
           name: "Route A · ORR Expressway (Default)",
-          points: [[12.9959, 77.6968], [12.9784, 77.6101], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9900, 77.6970],
+            [12.9860, 77.6975],
+            [12.9700, 77.6950],
+            [12.9630, 77.6650],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 9.5,
           crossStreets: 8,
           strikes: 0,
@@ -274,7 +394,14 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_a2",
           name: "Route B · Whitefield Hoodi Loop (Fallback 1)",
-          points: [[12.9959, 77.6968], [12.9840, 77.7200], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9920, 77.7150],
+            [12.9840, 77.7300],
+            [12.9750, 77.7250],
+            [12.9680, 77.7180],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 11.2,
           crossStreets: 7,
           strikes: 0,
@@ -284,7 +411,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_a3",
           name: "Route C · Marathahalli Bridge Bypass (Fallback 2)",
-          points: [[12.9959, 77.6968], [12.9550, 77.6980], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9800, 77.6960],
+            [12.9680, 77.6970],
+            [12.9550, 77.6980],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 10.5,
           crossStreets: 6,
           strikes: 0,
@@ -296,7 +429,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_b1",
           name: "Route Beta-1 · Waterlogging Elevated Path",
-          points: [[12.9959, 77.6968], [12.9900, 77.6700], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9900, 77.6700],
+            [12.9800, 77.6600],
+            [12.9700, 77.6500],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 10.2,
           crossStreets: 9,
           strikes: 0,
@@ -306,7 +445,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_b2",
           name: "Route Beta-2 · KR Puram Service Radial",
-          points: [[12.9959, 77.6968], [13.0100, 77.7000], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [13.0100, 77.7000],
+            [12.9950, 77.6850],
+            [12.9800, 77.6800],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 11.8,
           crossStreets: 8,
           strikes: 0,
@@ -316,7 +461,12 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_b3",
           name: "Route Beta-3 · HAL Airport Road diversion",
-          points: [[12.9959, 77.6968], [12.9600, 77.6500], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9850, 77.6750],
+            [12.9600, 77.6500],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 10.8,
           crossStreets: 7,
           strikes: 0,
@@ -328,7 +478,14 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_g1",
           name: "Route Gamma-1 · Trade Expo Special Route",
-          points: [[12.9959, 77.6968], [12.9800, 77.7500], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9850, 77.7250],
+            [12.9800, 77.7500],
+            [12.9700, 77.7350],
+            [12.9600, 77.7200],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 13.0,
           crossStreets: 12,
           strikes: 0,
@@ -338,7 +495,13 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_g2",
           name: "Route Gamma-2 · Phoenix Mall Event Radial",
-          points: [[12.9959, 77.6968], [12.9950, 77.7100], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9950, 77.7100],
+            [12.9850, 77.7050],
+            [12.9800, 77.7000],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 11.5,
           crossStreets: 10,
           strikes: 0,
@@ -348,7 +511,14 @@ export const INITIAL_CORRIDORS: Corridor[] = [
         {
           id: "orr_g3",
           name: "Route Gamma-3 · Sarjapur Radial Grid Bypass",
-          points: [[12.9959, 77.6968], [12.9250, 77.6800], [12.9626, 77.5946]],
+          points: [
+            [12.9959, 77.6968],
+            [12.9650, 77.6950],
+            [12.9250, 77.6800],
+            [12.9300, 77.6500],
+            [12.9400, 77.6200],
+            [12.9626, 77.5946]
+          ],
           distanceKm: 14.5,
           crossStreets: 11,
           strikes: 0,
