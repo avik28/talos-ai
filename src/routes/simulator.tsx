@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   SlidersHorizontal, Users, Clock, Gauge, TrendingUp, TrendingDown, Minus,
   ShieldAlert, Cone, MapPin, ArrowRight,
@@ -7,10 +7,110 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import {
   EVENT_TYPES, predict, fmtHour,
-  type EventType, type PredictionInput, type Venue,
+  type EventType, type PredictionInput, type Prediction, type Venue,
 } from "@/lib/gridmind";
 import { DEFAULT_PLACE } from "@/lib/locations";
 import { LocationSearch } from "@/components/LocationSearch";
+
+type ScenarioKey = "none" | "close-road" | "deploy-officers" | "diversion-b" | "signal-timing";
+
+interface ScenarioAction {
+  key: ScenarioKey;
+  label: string;
+  description: string;
+  icon: ReactNode;
+}
+
+interface ScenarioOutcome {
+  title: string;
+  description: string;
+  recommendation: string;
+  summary: string;
+  stats: { label: string; value: string }[];
+}
+
+const SCENARIO_ACTIONS: ScenarioAction[] = [
+  { key: "close-road", label: "Close Road", description: "Reroute traffic from one corridor.", icon: <Cone className="size-4" /> },
+  { key: "deploy-officers", label: "Deploy Officers", description: "Add 20 officers to improve intersection handling.", icon: <ShieldAlert className="size-4" /> },
+  { key: "diversion-b", label: "Diversion Route B", description: "Open an alternate bypass route.", icon: <ArrowRight className="size-4" /> },
+  { key: "signal-timing", label: "Signal Timing", description: "Optimize green time at critical lights.", icon: <Clock className="size-4" /> },
+];
+
+function buildScenarioOutcome(sim: Prediction, scenario: ScenarioKey): ScenarioOutcome {
+  const baseline = {
+    congestion: `${sim.score}/100`,
+    delay: `${sim.delayMin} min`,
+    radius: `${sim.radiusKm} km`,
+  };
+
+  switch (scenario) {
+    case "close-road":
+      return {
+        title: "Close MG Road",
+        description: "Simulate an arterial closure and reroute nearby corridors.",
+        recommendation: "Recommended",
+        summary: "Road closure shifts traffic off the primary link and reduces average delay for the simulated event.",
+        stats: [
+          { label: "Projected congestion", value: `${Math.max(8, sim.score - 10)}/100` },
+          { label: "Average delay", value: `${Math.max(8, sim.delayMin - 7)} min` },
+          { label: "Traffic shifted", value: "8,000 vehicles" },
+          { label: "Queue impact", value: "+12% on adjacent corridors" },
+        ],
+      };
+    case "deploy-officers":
+      return {
+        title: "Deploy 20 Officers",
+        description: "Boost intersection efficiency and emergency clearance.",
+        recommendation: "Recommended",
+        summary: "Additional officers reduce queue length and lower delay with better traffic flow control.",
+        stats: [
+          { label: "Intersection efficiency", value: "+18%" },
+          { label: "Signal clearance", value: "-22%" },
+          { label: "Average delay", value: `${Math.max(8, sim.delayMin - 12)} min` },
+          { label: "Congestion score", value: `${Math.max(8, sim.score - 7)}/100` },
+        ],
+      };
+    case "diversion-b":
+      return {
+        title: "Create Diversion Route B",
+        description: "Open a bypass route to shift load off the stadium perimeter.",
+        recommendation: "Recommended",
+        summary: "Route B shifts traffic away from the event footprint, saving fuel and reducing delay.",
+        stats: [
+          { label: "Traffic shifted", value: "8,000 vehicles" },
+          { label: "Fuel saved", value: "450 liters" },
+          { label: "Delay reduction", value: "17 min" },
+          { label: "Projected congestion", value: `${Math.max(8, sim.score - 12)}/100` },
+        ],
+      };
+    case "signal-timing":
+      return {
+        title: "Change Signal Timing",
+        description: "Optimize green cycles at key junctions.",
+        recommendation: "Recommended",
+        summary: "Signal timing adjustments improve clearance and lower average delay along the corridor.",
+        stats: [
+          { label: "Signal clearance", value: "-22%" },
+          { label: "Queue length", value: "-30%" },
+          { label: "Average delay", value: `${Math.max(8, sim.delayMin - 10)} min` },
+          { label: "Congestion score", value: `${Math.max(8, sim.score - 6)}/100` },
+        ],
+      };
+    default:
+      return {
+        title: "No action selected",
+        description: "Pick a what-if intervention to compare outcomes.",
+        recommendation: "Explore scenarios",
+        summary: "Use the buttons to simulate closure, officer deployment, diversion routing, or signal adjustment.",
+        stats: [
+          { label: "Current congestion", value: baseline.congestion },
+          { label: "Current delay", value: baseline.delay },
+          { label: "Affected radius", value: baseline.radius },
+          { label: "Severity", value: sim.severity },
+        ],
+      };
+  }
+}
 
 export const Route = createFileRoute("/simulator")({
   head: () => ({
@@ -29,6 +129,7 @@ function SimulatorPage() {
   const [hour, setHour] = useState(17);
   const [durationHr, setDurationHr] = useState(4);
   const [planned, setPlanned] = useState(true);
+  const [scenario, setScenario] = useState<ScenarioKey>("none");
 
   // Baseline is locked at 20,000 so users can see the delta as they scrub.
   const baseInput: PredictionInput = { type, location, attendees: 20000, hour, durationHr, planned };
@@ -36,6 +137,7 @@ function SimulatorPage() {
 
   const base = useMemo(() => predict(baseInput), [type, location, hour, durationHr, planned]);
   const sim = useMemo(() => predict(input), [type, location, attendees, hour, durationHr, planned]);
+  const scenarioOutcome = useMemo(() => buildScenarioOutcome(sim, scenario), [sim, scenario]);
 
   return (
     <div className="min-h-screen grid-bg">
@@ -85,6 +187,45 @@ function SimulatorPage() {
                 base={base.delayMin} now={sim.delayMin} />
               <DeltaCard label="Affected radius" unit="km" icon={<MapPin className="size-4" />}
                 base={base.radiusKm} now={sim.radiusKm} decimals={1} />
+            </div>
+
+            <div className="rounded-2xl border border-border panel-glass p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Digital Twin actions</h2>
+                  <p className="text-xs text-muted-foreground">Simulate interventions and see recommendation-driven outcomes.</p>
+                </div>
+                <span className="rounded-full border border-border bg-input/50 px-3 py-1 text-[11px] uppercase text-muted-foreground">{scenarioOutcome.title}</span>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2">
+                {SCENARIO_ACTIONS.map((action) => (
+                  <button key={action.key} type="button"
+                    onClick={() => setScenario(action.key)}
+                    className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition ${scenario === action.key ? "border-primary bg-primary/10 text-foreground" : "border-border bg-input/30 text-muted-foreground"}`}>
+                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">{action.icon}</div>
+                    <div>
+                      <div className="font-semibold">{action.label}</div>
+                      <p className="text-[11px] text-muted-foreground">{action.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {scenarioOutcome.stats.map((stat) => (
+                  <div key={stat.label} className="rounded-2xl border border-border bg-input/30 p-4">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{stat.label}</p>
+                    <p className="mt-2 text-xl font-bold">{stat.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-border bg-input/20 p-4">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Recommendation</p>
+                <p className="mt-2 text-2xl font-bold">{scenarioOutcome.recommendation}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{scenarioOutcome.summary}</p>
+              </div>
             </div>
 
             <div className="rounded-2xl border border-border panel-glass p-5">

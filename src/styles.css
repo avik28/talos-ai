@@ -66,64 +66,63 @@
 :root {
   --radius: 0.75rem;
 
-  /* Deep command-center navy */
-  --background: oklch(0.17 0.028 256);
-  --foreground: oklch(0.96 0.01 250);
+  /* Light workspace theme */
+  --background: oklch(0.96 0.01 220);
+  --foreground: oklch(0.14 0.01 220);
 
-  --panel: oklch(0.21 0.03 256);
-  --grid: oklch(0.3 0.03 256 / 35%);
+  --panel: oklch(0.99 0.01 220);
+  --grid: oklch(0.94 0.01 220 / 30%);
 
-  --card: oklch(0.215 0.03 256);
-  --card-foreground: oklch(0.96 0.01 250);
-  --popover: oklch(0.21 0.03 256);
-  --popover-foreground: oklch(0.96 0.01 250);
+  --card: oklch(0.99 0.01 220);
+  --card-foreground: oklch(0.14 0.01 220);
+  --popover: oklch(0.98 0.01 220);
+  --popover-foreground: oklch(0.14 0.01 220);
 
-  /* Amber tactical accent */
-  --primary: oklch(0.55 0.23 264);
-  --primary-foreground: oklch(0.98 0.01 250);
+  --primary: oklch(0.52 0.18 235);
+  --primary-foreground: oklch(0.99 0.01 220);
 
-  --secondary: oklch(0.27 0.035 256);
-  --secondary-foreground: oklch(0.95 0.01 250);
-  --muted: oklch(0.26 0.03 256);
-  --muted-foreground: oklch(0.7 0.025 256);
-  --accent: oklch(0.7 0.13 215);
-  --accent-foreground: oklch(0.18 0.03 256);
+  --secondary: oklch(0.62 0.06 210);
+  --secondary-foreground: oklch(0.08 0.01 220);
+  --muted: oklch(0.85 0.03 220);
+  --muted-foreground: oklch(0.35 0.01 220);
+  --accent: oklch(0.65 0.12 190);
+  --accent-foreground: oklch(0.08 0.01 220);
 
-  --destructive: oklch(0.62 0.22 22);
-  --destructive-foreground: oklch(0.98 0.01 250);
+  --destructive: oklch(0.68 0.24 29);
+  --destructive-foreground: oklch(0.99 0.01 220);
 
-  --critical: oklch(0.62 0.23 22);
-  --critical-foreground: oklch(0.98 0.01 20);
-  --warning: oklch(0.8 0.16 78);
-  --warning-foreground: oklch(0.2 0.03 256);
-  --success: oklch(0.72 0.17 155);
-  --success-foreground: oklch(0.16 0.03 256);
-  --info: oklch(0.7 0.13 215);
+  --critical: oklch(0.68 0.24 29);
+  --critical-foreground: oklch(0.99 0.01 220);
+  --warning: oklch(0.75 0.18 80);
+  --warning-foreground: oklch(0.09 0.01 220);
+  --success: oklch(0.65 0.19 145);
+  --success-foreground: oklch(0.08 0.01 220);
+  --info: oklch(0.6 0.16 215);
 
-  --border: oklch(0.32 0.03 256 / 60%);
-  --input: oklch(0.3 0.03 256);
-  --ring: oklch(0.55 0.23 264);
-  --ring-glow: oklch(0.55 0.23 264 / 50%);
+  --border: oklch(0.88 0.02 220 / 70%);
+  --input: oklch(0.98 0.01 220);
+  --ring: oklch(0.52 0.18 235);
+  --ring-glow: oklch(0.52 0.18 235 / 45%);
 
-  --chart-1: oklch(0.55 0.23 264);
-  --chart-2: oklch(0.7 0.13 215);
-  --chart-3: oklch(0.72 0.17 155);
-  --chart-4: oklch(0.62 0.23 22);
-  --chart-5: oklch(0.68 0.16 300);
+  --chart-1: oklch(0.52 0.18 235);
+  --chart-2: oklch(0.6 0.16 215);
+  --chart-3: oklch(0.65 0.19 145);
+  --chart-4: oklch(0.68 0.24 29);
+  --chart-5: oklch(0.55 0.12 270);
 
-  --sidebar: oklch(0.19 0.028 256);
-  --sidebar-foreground: oklch(0.92 0.01 250);
-  --sidebar-primary: oklch(0.55 0.23 264);
-  --sidebar-primary-foreground: oklch(0.98 0.01 250);
-  --sidebar-accent: oklch(0.26 0.03 256);
-  --sidebar-accent-foreground: oklch(0.95 0.01 250);
-  --sidebar-border: oklch(0.32 0.03 256 / 60%);
-  --sidebar-ring: oklch(0.55 0.23 264);
+  --sidebar: oklch(0.98 0.01 220);
+  --sidebar-foreground: oklch(0.14 0.01 220);
+  --sidebar-primary: oklch(0.52 0.18 235);
+  --sidebar-primary-foreground: oklch(0.99 0.01 220);
+  --sidebar-accent: oklch(0.93 0.01 220);
+  --sidebar-accent-foreground: oklch(0.14 0.01 220);
+  --sidebar-border: oklch(0.88 0.02 220 / 70%);
+  --sidebar-ring: oklch(0.52 0.18 235);
 }
 
 .dark {
-  --background: oklch(0.17 0.028 256);
-  --foreground: oklch(0.96 0.01 250);
+  --background: oklch(0.14 0.01 220);
+  --foreground: oklch(0.96 0.01 220);
 }
 
 @layer base {
@@ -150,11 +149,13 @@
       linear-gradient(var(--grid) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid) 1px, transparent 1px);
     background-size: 32px 32px;
+    background-color: var(--background);
   }
 
   .panel-glass {
-    background: color-mix(in oklab, var(--panel) 86%, transparent);
-    backdrop-filter: blur(10px);
+    background: color-mix(in oklab, var(--panel) 92%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.07);
   }
 
   .text-mono {
