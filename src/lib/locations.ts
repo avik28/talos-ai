@@ -1,0 +1,110 @@
+// Bengaluru locality dataset — powers Google-Maps-style location search
+// used across the GridMind command center (prediction, planner, simulator).
+import { VENUES, type Venue } from "./gridmind";
+
+// A searchable place is just a Venue with coordinates + intrinsic load.
+export type Place = Venue;
+
+// ~70 Bengaluru areas with approximate coordinates and an intrinsic
+// congestion pressure (baseLoad 0-1) used by the prediction engine.
+export const BLR_AREAS: Place[] = [
+  { id: "mg-road", name: "MG Road", area: "Central Business District", lat: 12.9756, lng: 77.6066, baseLoad: 0.88 },
+  { id: "brigade-road", name: "Brigade Road", area: "Central Business District", lat: 12.9719, lng: 77.6085, baseLoad: 0.86 },
+  { id: "majestic", name: "Majestic (KSR City)", area: "Central Zone 1", lat: 12.9774, lng: 77.5713, baseLoad: 0.9 },
+  { id: "shivajinagar", name: "Shivajinagar", area: "Central Zone 1", lat: 12.9857, lng: 77.6043, baseLoad: 0.84 },
+  { id: "indiranagar", name: "Indiranagar", area: "East Zone 1", lat: 12.9719, lng: 77.6412, baseLoad: 0.82 },
+  { id: "koramangala", name: "Koramangala", area: "South-East Zone", lat: 12.9352, lng: 77.6245, baseLoad: 0.83 },
+  { id: "btm", name: "BTM Layout", area: "South Zone 2", lat: 12.9166, lng: 77.6101, baseLoad: 0.79 },
+  { id: "jayanagar", name: "Jayanagar", area: "South Zone 1", lat: 12.925, lng: 77.5938, baseLoad: 0.76 },
+  { id: "jp-nagar", name: "JP Nagar", area: "South Zone 1", lat: 12.9063, lng: 77.5857, baseLoad: 0.72 },
+  { id: "banashankari", name: "Banashankari", area: "South Zone 1", lat: 12.925, lng: 77.5466, baseLoad: 0.71 },
+  { id: "basavanagudi", name: "Basavanagudi", area: "South Zone 1", lat: 12.9416, lng: 77.5731, baseLoad: 0.74 },
+  { id: "malleshwaram", name: "Malleshwaram", area: "North Zone 1", lat: 13.0035, lng: 77.5709, baseLoad: 0.77 },
+  { id: "rajajinagar", name: "Rajajinagar", area: "West Zone 1", lat: 12.9912, lng: 77.5526, baseLoad: 0.73 },
+  { id: "vijayanagar", name: "Vijayanagar", area: "West Zone 1", lat: 12.9719, lng: 77.5378, baseLoad: 0.7 },
+  { id: "yeshwanthpur", name: "Yeshwanthpur", area: "North-West Zone", lat: 13.0284, lng: 77.5547, baseLoad: 0.75 },
+  { id: "hebbal", name: "Hebbal", area: "North Zone 2", lat: 13.0358, lng: 77.597, baseLoad: 0.81 },
+  { id: "yelahanka", name: "Yelahanka", area: "North Zone 2", lat: 13.1007, lng: 77.5963, baseLoad: 0.64 },
+  { id: "rt-nagar", name: "RT Nagar", area: "North Zone 1", lat: 13.0207, lng: 77.5946, baseLoad: 0.7 },
+  { id: "sadashivanagar", name: "Sadashivanagar", area: "North Zone 1", lat: 13.0064, lng: 77.5806, baseLoad: 0.66 },
+  { id: "whitefield", name: "Whitefield", area: "East Zone 1", lat: 12.9698, lng: 77.7499, baseLoad: 0.85 },
+  { id: "marathahalli", name: "Marathahalli", area: "East Zone 2", lat: 12.9591, lng: 77.6974, baseLoad: 0.84 },
+  { id: "bellandur", name: "Bellandur", area: "South-East Zone", lat: 12.9304, lng: 77.6784, baseLoad: 0.86 },
+  { id: "sarjapur", name: "Sarjapur Road", area: "South-East Zone", lat: 12.9009, lng: 77.6974, baseLoad: 0.83 },
+  { id: "hsr", name: "HSR Layout", area: "South-East Zone", lat: 12.9116, lng: 77.6412, baseLoad: 0.78 },
+  { id: "electronic-city", name: "Electronic City", area: "South Zone 3", lat: 12.8452, lng: 77.6602, baseLoad: 0.8 },
+  { id: "bommanahalli", name: "Bommanahalli", area: "South Zone 3", lat: 12.9072, lng: 77.6184, baseLoad: 0.76 },
+  { id: "silk-board", name: "Silk Board Junction", area: "South-East Zone", lat: 12.9172, lng: 77.6228, baseLoad: 0.92 },
+  { id: "hosur-road", name: "Hosur Road", area: "South Zone 3", lat: 12.8951, lng: 77.6312, baseLoad: 0.82 },
+  { id: "kr-puram", name: "KR Puram", area: "East Zone 2", lat: 12.9991, lng: 77.6961, baseLoad: 0.84 },
+  { id: "tin-factory", name: "Tin Factory", area: "East Zone 2", lat: 13.0006, lng: 77.6602, baseLoad: 0.85 },
+  { id: "banaswadi", name: "Banaswadi", area: "East Zone 1", lat: 13.0143, lng: 77.6516, baseLoad: 0.73 },
+  { id: "kammanahalli", name: "Kammanahalli", area: "East Zone 1", lat: 13.0144, lng: 77.6386, baseLoad: 0.72 },
+  { id: "hennur", name: "Hennur", area: "North-East Zone", lat: 13.0386, lng: 77.6406, baseLoad: 0.68 },
+  { id: "kalyan-nagar", name: "Kalyan Nagar", area: "North-East Zone", lat: 13.0257, lng: 77.6408, baseLoad: 0.71 },
+  { id: "ramamurthy-nagar", name: "Ramamurthy Nagar", area: "East Zone 2", lat: 13.0146, lng: 77.6776, baseLoad: 0.7 },
+  { id: "cv-raman-nagar", name: "CV Raman Nagar", area: "East Zone 1", lat: 12.9851, lng: 77.6633, baseLoad: 0.72 },
+  { id: "domlur", name: "Domlur", area: "East Zone 1", lat: 12.9608, lng: 77.6387, baseLoad: 0.77 },
+  { id: "ulsoor", name: "Ulsoor", area: "Central Zone 2", lat: 12.9784, lng: 77.6209, baseLoad: 0.78 },
+  { id: "frazer-town", name: "Frazer Town", area: "Central Zone 2", lat: 12.9981, lng: 77.6149, baseLoad: 0.75 },
+  { id: "cox-town", name: "Cox Town", area: "Central Zone 2", lat: 12.9962, lng: 77.6196, baseLoad: 0.72 },
+  { id: "richmond-town", name: "Richmond Town", area: "Central Business District", lat: 12.9626, lng: 77.6033, baseLoad: 0.78 },
+  { id: "wilson-garden", name: "Wilson Garden", area: "South Zone 1", lat: 12.9472, lng: 77.5986, baseLoad: 0.74 },
+  { id: "lalbagh", name: "Lalbagh", area: "South Zone 1", lat: 12.9507, lng: 77.5848, baseLoad: 0.7 },
+  { id: "vv-puram", name: "VV Puram", area: "South Zone 1", lat: 12.9485, lng: 77.5757, baseLoad: 0.71 },
+  { id: "girinagar", name: "Girinagar", area: "South Zone 1", lat: 12.9395, lng: 77.5436, baseLoad: 0.65 },
+  { id: "kengeri", name: "Kengeri", area: "West Zone 2", lat: 12.9079, lng: 77.4847, baseLoad: 0.66 },
+  { id: "rr-nagar", name: "Rajarajeshwari Nagar", area: "West Zone 2", lat: 12.9255, lng: 77.5189, baseLoad: 0.68 },
+  { id: "nagarbhavi", name: "Nagarbhavi", area: "West Zone 1", lat: 12.9606, lng: 77.5076, baseLoad: 0.64 },
+  { id: "magadi-road", name: "Magadi Road", area: "West Zone 1", lat: 12.9764, lng: 77.5503, baseLoad: 0.72 },
+  { id: "peenya", name: "Peenya", area: "North-West Zone", lat: 13.0277, lng: 77.5196, baseLoad: 0.79 },
+  { id: "jalahalli", name: "Jalahalli", area: "North-West Zone", lat: 13.0476, lng: 77.5478, baseLoad: 0.69 },
+  { id: "mathikere", name: "Mathikere", area: "North-West Zone", lat: 13.0334, lng: 77.5612, baseLoad: 0.68 },
+  { id: "sanjaynagar", name: "Sanjaynagar", area: "North Zone 1", lat: 13.0341, lng: 77.5752, baseLoad: 0.67 },
+  { id: "kodigehalli", name: "Kodigehalli", area: "North Zone 2", lat: 13.0606, lng: 77.5836, baseLoad: 0.62 },
+  { id: "vidyaranyapura", name: "Vidyaranyapura", area: "North Zone 2", lat: 13.0786, lng: 77.557, baseLoad: 0.6 },
+  { id: "banashankari-6", name: "Banashankari 6th Stage", area: "South Zone 2", lat: 12.8923, lng: 77.5236, baseLoad: 0.58 },
+  { id: "uttarahalli", name: "Uttarahalli", area: "South Zone 2", lat: 12.9077, lng: 77.5453, baseLoad: 0.63 },
+  { id: "kanakapura-road", name: "Kanakapura Road", area: "South Zone 2", lat: 12.8893, lng: 77.5586, baseLoad: 0.7 },
+  { id: "bannerghatta", name: "Bannerghatta Road", area: "South Zone 2", lat: 12.8882, lng: 77.5973, baseLoad: 0.78 },
+  { id: "begur", name: "Begur", area: "South Zone 3", lat: 12.8746, lng: 77.6256, baseLoad: 0.64 },
+  { id: "hosa-road", name: "Hosa Road", area: "South Zone 3", lat: 12.8849, lng: 77.6679, baseLoad: 0.71 },
+  { id: "varthur", name: "Varthur", area: "East Zone 2", lat: 12.9404, lng: 77.7468, baseLoad: 0.72 },
+  { id: "kadugodi", name: "Kadugodi", area: "East Zone 2", lat: 12.9956, lng: 77.7588, baseLoad: 0.7 },
+  { id: "hoodi", name: "Hoodi", area: "East Zone 2", lat: 12.9919, lng: 77.7159, baseLoad: 0.76 },
+  { id: "mahadevapura", name: "Mahadevapura", area: "East Zone 2", lat: 12.9886, lng: 77.6873, baseLoad: 0.8 },
+  { id: "devanahalli", name: "Devanahalli (Airport Rd)", area: "North Zone 3", lat: 13.2437, lng: 77.7136, baseLoad: 0.6 },
+  { id: "hennur-road", name: "Hennur Road", area: "North-East Zone", lat: 13.0489, lng: 77.6347, baseLoad: 0.69 },
+  { id: "thanisandra", name: "Thanisandra", area: "North-East Zone", lat: 13.0588, lng: 77.6266, baseLoad: 0.7 },
+  { id: "nagawara", name: "Nagawara", area: "North-East Zone", lat: 13.0438, lng: 77.6196, baseLoad: 0.74 },
+  { id: "manyata", name: "Manyata Tech Park", area: "North-East Zone", lat: 13.0454, lng: 77.6207, baseLoad: 0.83 },
+];
+
+// Known named venues come first, then general areas. De-duplicate by name.
+const seen = new Set<string>();
+export const ALL_PLACES: Place[] = [...VENUES, ...BLR_AREAS].filter((p) => {
+  const key = p.name.toLowerCase();
+  if (seen.has(key)) return false;
+  seen.add(key);
+  return true;
+});
+
+export const DEFAULT_PLACE: Place = ALL_PLACES.find((p) => p.id === "palace") ?? ALL_PLACES[0];
+
+// Lightweight fuzzy-ish ranking: prefix > word-start > substring.
+export function searchPlaces(query: string, limit = 8): Place[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return ALL_PLACES.slice(0, limit);
+  const scored = ALL_PLACES.map((p) => {
+    const name = p.name.toLowerCase();
+    const area = p.area.toLowerCase();
+    let score = -1;
+    if (name.startsWith(q)) score = 100;
+    else if (name.split(/[\s(]/).some((w) => w.startsWith(q))) score = 80;
+    else if (name.includes(q)) score = 60;
+    else if (area.includes(q)) score = 40;
+    return { p, score };
+  }).filter((x) => x.score >= 0);
+  scored.sort((a, b) => b.score - a.score || b.p.baseLoad - a.p.baseLoad);
+  return scored.slice(0, limit).map((x) => x.p);
+}
