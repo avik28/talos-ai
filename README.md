@@ -20,6 +20,7 @@ npm install -D @types/leaflet --legacy-peer-deps
 ```bash
 ./venv/Scripts/activate
 cd backend
+pip install -r 'requirements.txt'
 uvicorn main:app --reload
 
 cd frontend

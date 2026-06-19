@@ -3,9 +3,8 @@ import { Brain, CalendarClock, Siren } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const links = [
-  { to: "/", label: "Command" },
+  { to: "/", label: "Command & Diversions" },
   { to: "/simulator", label: "What-If" },
-  { to: "/diversions", label: "Diversions" },
   { to: "/resources", label: "Resources" },
   { to: "/deployment", label: "Deployment" },
   { to: "/planner", label: "Planner" },
