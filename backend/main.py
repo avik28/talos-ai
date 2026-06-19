@@ -1,13 +1,34 @@
 import os
 import re
 import copy
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import osmnx as ox
 import networkx as nx
 
-app = FastAPI(title="GridMind AI Routing Engine Backend")
+BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+GRAPH_PATH = os.path.join(BACKEND_DIR, "data", "bangalore.graphml")
+G = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global G
+    if not os.path.exists(GRAPH_PATH):
+        print(f"ERROR: Graph file not found at {GRAPH_PATH}. Bootstrapping a quick fallback graph...")
+        # Automatically run bootstrap if missing
+        import sys
+        import subprocess
+        bootstrap_script = os.path.join(BACKEND_DIR, "bootstrap_graph.py")
+        subprocess.run([sys.executable, bootstrap_script])
+        
+    print("Loading Bangalore street network graph from disk...")
+    G = ox.load_graphml(GRAPH_PATH)
+    print(f"Loaded graph with {len(G)} nodes and {len(G.edges())} edges.")
+    yield
+
+app = FastAPI(title="GridMind AI Routing Engine Backend", lifespan=lifespan)
 
 # Enable CORS
 app.add_middleware(
@@ -17,22 +38,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-GRAPH_PATH = "backend/data/bangalore.graphml"
-G = None
-
-@app.on_event("startup")
-def startup_event():
-    global G
-    if not os.path.exists(GRAPH_PATH):
-        print(f"ERROR: Graph file not found at {GRAPH_PATH}. Bootstrapping a quick fallback graph...")
-        # Automatically run bootstrap if missing
-        import subprocess
-        subprocess.run(["python", "backend/bootstrap_graph.py"])
-        
-    print("Loading Bangalore street network graph from disk...")
-    G = ox.load_graphml(GRAPH_PATH)
-    print(f"Loaded graph with {len(G)} nodes and {len(G.edges())} edges.")
 
 class RouteRequest(BaseModel):
     waypoints: list[list[float]] # [[lat, lng], ...]

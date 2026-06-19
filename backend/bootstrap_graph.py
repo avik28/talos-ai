@@ -26,8 +26,10 @@ def bootstrap():
     )
     
     # Save the graph locally in GraphML format
-    os.makedirs("backend/data", exist_ok=True)
-    filepath = "backend/data/bangalore.graphml"
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(backend_dir, "data")
+    os.makedirs(data_dir, exist_ok=True)
+    filepath = os.path.join(data_dir, "bangalore.graphml")
     
     print(f"Saving graph with {len(G)} nodes and {len(G.edges())} edges to {filepath}...")
     ox.save_graphml(G, filepath=filepath)

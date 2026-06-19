@@ -18,7 +18,14 @@ npm install -D @types/leaflet --legacy-peer-deps
 ## Run the Project
 
 ```bash
+./venv/Scripts/activate
+cd backend
+uvicorn main:app --reload
+
+cd frontend
 npm run dev
 ```
 
 The app will start on `http://localhost:5173`.
+
+
