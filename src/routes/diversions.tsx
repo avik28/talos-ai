@@ -354,7 +354,24 @@ function DiversionsPage() {
     setConsoleMessages([
       { sender: "system", text: "Simulation parameters cleared. CLI Console Ready." }
     ]);
-    toast.success("Simulation parameters reset.");
+    // Reset corridor stacks back to post-bootstrapped state
+    setCorridors(() => {
+      return INITIAL_CORRIDORS.map((c) => {
+        if (c.id === "mg_road") {
+          const updatedAlpha = [...c.stacks.alpha];
+          updatedAlpha[0] = { ...updatedAlpha[0], strikes: 3, status: "Penalty Box" };
+          return {
+            ...c,
+            stacks: {
+              ...c.stacks,
+              alpha: [updatedAlpha[1], updatedAlpha[2], updatedAlpha[0]]
+            }
+          };
+        }
+        return JSON.parse(JSON.stringify(c));
+      });
+    });
+    toast.success("Simulation parameters and strikes reset.");
   }
 
   // Calculate dynamic impact score for the dashboard
