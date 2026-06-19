@@ -15,6 +15,7 @@ import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as IncidentsRouteImport } from './routes/incidents'
 import { Route as DiversionsRouteImport } from './routes/diversions'
+import { Route as DigitaltwinRouteImport } from './routes/digitaltwin'
 import { Route as DeploymentRouteImport } from './routes/deployment'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -48,6 +49,11 @@ const DiversionsRoute = DiversionsRouteImport.update({
   path: '/diversions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DigitaltwinRoute = DigitaltwinRouteImport.update({
+  id: '/digitaltwin',
+  path: '/digitaltwin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DeploymentRoute = DeploymentRouteImport.update({
   id: '/deployment',
   path: '/deployment',
@@ -62,6 +68,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/digitaltwin': typeof DigitaltwinRoute
   '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/digitaltwin': typeof DigitaltwinRoute
   '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deployment': typeof DeploymentRoute
+  '/digitaltwin': typeof DigitaltwinRoute
   '/diversions': typeof DiversionsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/deployment'
+    | '/digitaltwin'
     | '/diversions'
     | '/incidents'
     | '/planner'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/deployment'
+    | '/digitaltwin'
     | '/diversions'
     | '/incidents'
     | '/planner'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/deployment'
+    | '/digitaltwin'
     | '/diversions'
     | '/incidents'
     | '/planner'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeploymentRoute: typeof DeploymentRoute
+  DigitaltwinRoute: typeof DigitaltwinRoute
   DiversionsRoute: typeof DiversionsRoute
   IncidentsRoute: typeof IncidentsRoute
   PlannerRoute: typeof PlannerRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DiversionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/digitaltwin': {
+      id: '/digitaltwin'
+      path: '/digitaltwin'
+      fullPath: '/digitaltwin'
+      preLoaderRoute: typeof DigitaltwinRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deployment': {
       id: '/deployment'
       path: '/deployment'
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeploymentRoute: DeploymentRoute,
+  DigitaltwinRoute: DigitaltwinRoute,
   DiversionsRoute: DiversionsRoute,
   IncidentsRoute: IncidentsRoute,
   PlannerRoute: PlannerRoute,

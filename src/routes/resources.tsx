@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import { VENUES, STATIONS, predict, fmtHour } from "@/lib/gridmind";
-import { useEvents } from "@/lib/store";
+import { useEvents, type PlannedEvent } from "@/lib/store";
 
 export const Route = createFileRoute("/resources")({
   head: () => ({
@@ -22,6 +22,45 @@ export const Route = createFileRoute("/resources")({
 const CITY_POOL = { barricades: 90, towTrucks: 8, ambulances: 6 };
 const TOTAL_OFFICERS = STATIONS.reduce((s, x) => s + x.officersAvailable, 0);
 
+function eventResourceProfile(event: PlannedEvent) {
+  const load = Math.min(event.attendees / 35000, 1);
+  const profile = {
+    officers: 8 + Math.round(load * 24) + (event.planned ? 0 : 4),
+    barricades: 4 + Math.round(load * 10),
+    towTrucks: 1,
+    ambulances: 1,
+    note: "Standard event support",
+  };
+
+  const type = event.type;
+  if (["Cricket Match", "Football Match", "Concert", "Music Festival", "Festival"].includes(type)) {
+    profile.officers += 4;
+    profile.barricades += 3;
+  }
+  if (["Political Rally", "Protest", "Religious Procession"].includes(type)) {
+    profile.officers += 5;
+    profile.barricades += 4;
+    profile.ambulances += 1;
+    profile.note = "Crowd control + medical standby";
+  }
+  if (["VIP Movement", "State Function", "Film Premiere"].includes(type)) {
+    profile.officers += 7;
+    profile.barricades += 2;
+    profile.note = "High security escort";
+  }
+  if (["Roadwork / Diversion", "Marathon", "Cycling Event", "Strike / Bandh"].includes(type)) {
+    profile.towTrucks = 2;
+    profile.barricades += 3;
+    profile.note = "Route management + vehicle support";
+  }
+  if (type === "Wedding / Convention") {
+    profile.barricades += 2;
+    profile.note = "Private access control";
+  }
+
+  return profile;
+}
+
 function ResourcesPage() {
   const { events } = useEvents();
   const upcoming = events.filter((e) => e.status !== "Completed");
@@ -30,12 +69,24 @@ function ResourcesPage() {
     let officers = 0, barricades = 0, towTrucks = 0, ambulances = 0;
     const rows = upcoming.map((e) => {
       const p = predict(e);
-      officers += p.resources.officers;
-      barricades += p.resources.barricades;
-      towTrucks += p.resources.towTrucks;
-      ambulances += p.resources.ambulances;
+      const extra = eventResourceProfile(e);
+      const eventOfficers = Math.max(p.resources.officers, extra.officers);
+      const eventBarricades = Math.max(p.resources.barricades, extra.barricades);
+      const eventTowTrucks = Math.max(p.resources.towTrucks, extra.towTrucks);
+      const eventAmbulances = Math.max(p.resources.ambulances, extra.ambulances);
+
+      officers += eventOfficers;
+      barricades += eventBarricades;
+      towTrucks += eventTowTrucks;
+      ambulances += eventAmbulances;
+
       const venue = VENUES.find((v) => v.id === e.venueId);
-      return { e, p, venueName: e.location?.name ?? venue?.name ?? e.venueId };
+      return {
+        e,
+        p,
+        adjusted: { officers: eventOfficers, barricades: eventBarricades, towTrucks: eventTowTrucks, ambulances: eventAmbulances, note: extra.note },
+        venueName: e.location?.name ?? venue?.name ?? e.venueId,
+      };
     });
     return { officers, barricades, towTrucks, ambulances, rows };
   }, [upcoming]);
@@ -48,6 +99,7 @@ function ResourcesPage() {
   ];
 
   const shortages = items.filter((i) => i.need > i.have);
+  const specialDemand = forecast.rows.filter((row) => row.adjusted.note !== "Standard event support");
 
   return (
     <div className="min-h-screen grid-bg">
@@ -102,21 +154,63 @@ function ResourcesPage() {
                   <CalendarClock className="size-4" /> Demand by event
                 </h2>
                 <div className="space-y-2">
-                  {forecast.rows.map(({ e, p, venueName }) => (
-                    <div key={e.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-input/30 p-3">
-                      <div>
-                        <p className="text-sm font-bold">{e.title}</p>
-                        <p className="text-[11px] text-muted-foreground">{venueName} · {e.date} · {fmtHour(e.hour)} · {e.attendees.toLocaleString()} ppl</p>
+                  {forecast.rows.map(({ e, p, adjusted, venueName }) => (
+                    <div key={e.id} className="rounded-2xl border border-border bg-input/30 p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-slate-950">{e.title}</p>
+                          <p className="mt-1 text-[11px] text-muted-foreground">{venueName} · {e.date} · {fmtHour(e.hour)} · {e.attendees.toLocaleString()} ppl</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                          <span className="rounded-full bg-slate-100 px-2 py-1">{e.status}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-1">{adjusted.note}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 text-mono text-xs">
-                        <span className="flex items-center gap-1"><ShieldAlert className="size-3 text-warning" />{p.resources.officers}</span>
-                        <span className="flex items-center gap-1"><Cone className="size-3 text-info" />{p.resources.barricades}</span>
-                        <span className="flex items-center gap-1"><Truck className="size-3 text-muted-foreground" />{p.resources.towTrucks}</span>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-4 text-mono text-xs">
+                        <div className="rounded-2xl bg-white/80 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Officers</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{adjusted.officers}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Barricades</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{adjusted.barricades}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Tow trucks</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{adjusted.towTrucks}</p>
+                        </div>
+                        <div className="rounded-2xl bg-white/80 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-500">Ambulances</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{adjusted.ambulances}</p>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {specialDemand.length > 0 && (
+                <div className="rounded-2xl border border-warning/40 bg-warning/10 p-5">
+                  <div className="mb-4 flex items-center gap-2 text-warning">
+                    <AlertTriangle className="size-4" />
+                    <h2 className="text-sm font-bold uppercase tracking-wide">Special demand events</h2>
+                  </div>
+                  <div className="space-y-3">
+                    {specialDemand.map(({ e, adjusted, venueName }) => (
+                      <div key={e.id} className="rounded-2xl border border-warning/20 bg-white/90 p-4">
+                        <p className="text-sm font-semibold text-slate-950">{e.title}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">{venueName} · {e.date} · {fmtHour(e.hour)}</p>
+                        <p className="mt-3 text-[11px] text-slate-700">{adjusted.note}</p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-700">
+                          <span className="rounded-full bg-slate-100 px-2 py-1">Officers {adjusted.officers}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-1">Tow trucks {adjusted.towTrucks}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-1">Ambulances {adjusted.ambulances}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="h-fit rounded-2xl border border-border panel-glass p-5">
                 <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
