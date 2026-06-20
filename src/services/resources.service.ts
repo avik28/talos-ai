@@ -1,9 +1,9 @@
 export interface ResourceRequest {
   planned: boolean;
   impact_score: number;
-  cross_streets: int;
-  distance_km: float;
-  attendees: int;
+  cross_streets: number;
+  distance_km: number;
+  attendees: number;
 }
 
 export interface ResourceResponse {

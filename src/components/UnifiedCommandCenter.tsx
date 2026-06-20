@@ -455,11 +455,40 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
             setCorridors((prevCorridors) => {
               return prevCorridors.map((c) => {
                 if (c.id === "incident_corridor") {
+                  const currentRoutes = c.stacks[activeStackType] || [];
+                  let updatedRoutes = [];
+                  if (currentRoutes.length === 0) {
+                    updatedRoutes = data.routes;
+                  } else {
+                    updatedRoutes = currentRoutes.map((existingRoute) => {
+                      const isRouteA = existingRoute.id.endsWith("r1") || existingRoute.id.endsWith("_1") || existingRoute.name.includes("Route A");
+                      const isRouteB = existingRoute.id.endsWith("r2") || existingRoute.id.endsWith("_2") || existingRoute.name.includes("Route B");
+                      const isRouteC = existingRoute.id.endsWith("r3") || existingRoute.id.endsWith("_3") || existingRoute.name.includes("Route C");
+
+                      const newRoute = data.routes.find((nr: any) => {
+                        if (isRouteA) return nr.id.endsWith("_1") || nr.name.includes("Route A");
+                        if (isRouteB) return nr.id.endsWith("_2") || nr.name.includes("Route B");
+                        if (isRouteC) return nr.id.endsWith("_3") || nr.name.includes("Route C");
+                        return false;
+                      });
+
+                      if (newRoute) {
+                        return {
+                          ...existingRoute,
+                          points: newRoute.points,
+                          distanceKm: newRoute.distanceKm,
+                          crossStreets: newRoute.crossStreets,
+                          baseTimeMin: newRoute.baseTimeMin,
+                        };
+                      }
+                      return existingRoute;
+                    });
+                  }
                   return {
                     ...c,
                     stacks: {
                       ...c.stacks,
-                      [activeStackType]: data.routes
+                      [activeStackType]: updatedRoutes
                     }
                   };
                 }
@@ -501,7 +530,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     return () => {
       isCancelled = true;
     };
-  }, [intakeType, eventCause, corridorName, vehType, priorityLevel, reasonText, actualClearanceTime, estimatedVolume, networkCapacity, selectedCorridor, selectedIncident, selectedCorridorId, rain, peakHour, deployedOfficers, activeStackType]);
+  }, [intakeType, eventCause, corridorName, vehType, priorityLevel, reasonText, actualClearanceTime, estimatedVolume, networkCapacity, selectedCorridor?.id, selectedCorridor?.lat, selectedCorridor?.lng, selectedCorridor?.zone, selectedIncident, selectedCorridorId, rain, peakHour, deployedOfficers, activeStackType]);
 
   // ==========================================
   // COMMAND CENTER CORE (AI prediction trigger)
@@ -943,8 +972,12 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         });
       }
 
-      // Fly map to active focus — zoom 12.5 fits the full 3km-radius detour corridor
-      map.flyTo([selectedCorridor.lat, selectedCorridor.lng], 12.5, { duration: 0.8 });
+      // Fly map to active focus only when the corridor or location actually changes
+      const locationKey = `${selectedCorridor.id}_${selectedCorridor.lat}_${selectedCorridor.lng}`;
+      if (prevCorridorLocationRef.current !== locationKey) {
+        map.flyTo([selectedCorridor.lat, selectedCorridor.lng], 12.5, { duration: 0.8 });
+        prevCorridorLocationRef.current = locationKey;
+      }
     }
   }
 
@@ -955,6 +988,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   const mapRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
   const LRef = useRef<any>(null);
+  const prevCorridorLocationRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
