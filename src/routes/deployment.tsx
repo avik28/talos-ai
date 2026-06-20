@@ -15,6 +15,7 @@ import {
   Layers,
   MessageCircle,
   Target,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AppHeader } from "@/components/AppHeader";
@@ -39,11 +40,19 @@ function DeploymentPage() {
   const { events } = useEvents();
   const openIncidents = incidents.filter((i) => i.status !== "Resolved");
 
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [inspectTab, setInspectTab] = useState<"priority" | "dijkstra" | "dispatch">("priority");
+
   const scoredIncidents = useMemo(() => {
     return openIncidents
       .map((incident) => ({ incident, esc: computeEscalation(incident, incidents) }))
       .sort((a, b) => b.esc.score - a.esc.score);
   }, [openIncidents, incidents]);
+
+  const activeSelectedId = selectedIncidentId || (scoredIncidents[0]?.incident.id ?? null);
+  const selectedEntry = useMemo(() => {
+    return scoredIncidents.find((item) => item.incident.id === activeSelectedId) ?? scoredIncidents[0] ?? null;
+  }, [scoredIncidents, activeSelectedId]);
 
   function dispatchIncident(order: { incidentId: string; incidentLabel: string; officers: number; stations: Array<{ station: string; officers: number; eta: number }>; }) {
     const incident = incidents.find((i) => i.id === order.incidentId);
@@ -169,26 +178,209 @@ function DeploymentPage() {
             <div className="grid gap-6 xl:grid-cols-[350px_1fr]">
               <div className="space-y-6">
                 <Panel title="Multi-Incident Priority Engine" icon={<Zap className="size-4" />}>
-                  <p className="mb-4 text-xs text-muted-foreground">Incidents are ranked by urgency, severity, age and nearby clustering to allocate resources where they matter most.</p>
+                  <p className="mb-4 text-xs text-muted-foreground">Incidents are ranked by urgency, severity, age and nearby clustering. Click an incident to inspect its decision calculations below.</p>
                   <div className="space-y-3">
-                    {scoredIncidents.map(({ incident, esc }) => (
-                      <div key={incident.id} className="rounded-2xl border border-border bg-input/30 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">{incident.kind}</p>
-                            <p className="text-[11px] text-muted-foreground">{incident.location}</p>
+                    {scoredIncidents.map(({ incident, esc }) => {
+                      const isSelected = incident.id === activeSelectedId;
+                      return (
+                        <div
+                          key={incident.id}
+                          onClick={() => setSelectedIncidentId(incident.id)}
+                          className={`rounded-2xl border p-4 transition-all cursor-pointer select-none ${
+                            isSelected
+                              ? "border-primary bg-primary/10 shadow-glow"
+                              : "border-border bg-input/30 hover:border-muted-foreground/30 hover:bg-input/40"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold">{incident.kind}</p>
+                              <p className="text-[11px] text-muted-foreground">{incident.location}</p>
+                            </div>
+                            <span className="text-mono text-sm font-bold text-foreground">{esc.score}</span>
                           </div>
-                          <span className="text-mono text-sm font-bold text-foreground">{esc.score}</span>
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                            <span className="rounded-full border border-border px-2 py-1 bg-background/50">{incident.severity} severity</span>
+                            <span className="rounded-full border border-border px-2 py-1 bg-background/50">{incident.status}</span>
+                            <span className="rounded-full border border-border px-2 py-1 bg-background/50">{esc.ageMin} min open</span>
+                            <span className="rounded-full border border-border px-2 py-1 bg-background/50">{esc.nearbyCount} cluster</span>
+                          </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                          <span className="rounded-full border border-border px-2 py-1">{incident.severity} severity</span>
-                          <span className="rounded-full border border-border px-2 py-1">{incident.status}</span>
-                          <span className="rounded-full border border-border px-2 py-1">{esc.ageMin} min open</span>
-                          <span className="rounded-full border border-border px-2 py-1">{esc.nearbyCount} cluster</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                </Panel>
+
+                <Panel title="Algorithmic Formula Inspector" icon={<Info className="size-4 text-primary" />}>
+                  <p className="mb-4 text-xs text-muted-foreground">Inspect decision equations and live variable trace parameters for the active dispatch plan.</p>
+                  
+                  <div className="flex border-b border-border mb-4">
+                    <button
+                      onClick={() => setInspectTab("priority")}
+                      className={`flex-1 pb-2 text-center text-xs font-semibold border-b-2 transition-all cursor-pointer ${inspectTab === "priority" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Priority Math
+                    </button>
+                    <button
+                      onClick={() => setInspectTab("dijkstra")}
+                      className={`flex-1 pb-2 text-center text-xs font-semibold border-b-2 transition-all cursor-pointer ${inspectTab === "dijkstra" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Kinematic Dijkstra
+                    </button>
+                    <button
+                      onClick={() => setInspectTab("dispatch")}
+                      className={`flex-1 pb-2 text-center text-xs font-semibold border-b-2 transition-all cursor-pointer ${inspectTab === "dispatch" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Dispatch Cost
+                    </button>
                   </div>
+
+                  {inspectTab === "priority" && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-border bg-input/20 p-3.5">
+                        <p className="text-xs font-bold text-foreground mb-2">PRIORITY EQUATION</p>
+                        <div className="font-mono text-[11px] text-primary bg-background/50 p-2 rounded border border-border/50 select-all leading-relaxed whitespace-pre-wrap">
+                          {"S_priority = clamp(S_base + A_esc + C_corridor + M_adj, 5, 100)"}
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground leading-normal">
+                          Where base score is severity-dependent. Age escalation (A_esc) adds points (+12 at 10m, +22 at 25m) representing time pressure. Corridor compound factor (C_corridor) compounds risk (+10 + 8 * N) for nearby active incidents. Mitigation adjustment (M_adj) applies -10 relief points once unit dispatches.
+                        </p>
+                      </div>
+
+                      {selectedEntry ? (
+                        <div className="rounded-xl border border-border bg-input/20 p-3.5 space-y-2.5">
+                          <p className="text-xs font-bold text-foreground">LIVE PARAMETERS: {selectedEntry.incident.kind}</p>
+                          <div className="space-y-1.5 text-xs">
+                            <div className="flex justify-between border-b border-border/30 pb-1">
+                              <span className="text-muted-foreground">Base Score (S_base)</span>
+                              <span className="font-mono font-semibold">{selectedEntry.incident.severity} ({selectedEntry.incident.severity === "Low" ? 18 : selectedEntry.incident.severity === "Medium" ? 38 : selectedEntry.incident.severity === "High" ? 60 : 82})</span>
+                            </div>
+                            <div className="flex justify-between border-b border-border/30 pb-1">
+                              <span className="text-muted-foreground">Time Open (A_esc)</span>
+                              <span className="font-mono font-semibold">{selectedEntry.esc.ageMin} mins (+{selectedEntry.esc.ageMin >= 25 ? 22 : selectedEntry.esc.ageMin >= 10 ? 12 : 0})</span>
+                            </div>
+                            <div className="flex justify-between border-b border-border/30 pb-1">
+                              <span className="text-muted-foreground">Nearby Clusters (C_corridor)</span>
+                              <span className="font-mono font-semibold">{selectedEntry.esc.nearbyCount} active (+{selectedEntry.esc.nearbyCount >= 1 ? (10 + selectedEntry.esc.nearbyCount * 8) : 0})</span>
+                            </div>
+                            <div className="flex justify-between border-b border-border/30 pb-1">
+                              <span className="text-muted-foreground">Dispatched Relief (M_adj)</span>
+                              <span className="font-mono font-semibold">{selectedEntry.incident.status === "Dispatched" ? "-10" : "0"} ({selectedEntry.incident.status})</span>
+                            </div>
+                            <div className="flex justify-between pt-1 text-sm font-bold text-primary">
+                              <span>Incident Priority Score</span>
+                              <span className="font-mono">{selectedEntry.esc.score} / 100</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-xs text-muted-foreground py-4 border border-dashed border-border rounded-xl">
+                          Select an incident above to view its live variables trace.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {inspectTab === "dijkstra" && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-border bg-input/20 p-3.5">
+                        <p className="text-xs font-bold text-foreground mb-2">TEMPORAL DIGRAPH WEIGHTING</p>
+                        <div className="font-mono text-[11px] text-primary bg-background/50 p-2 rounded border border-border/50 select-all leading-relaxed whitespace-pre-wrap">
+                          {"T_segment = D_segment / (V_base * (1 - C_density) * W_weather)"}
+                        </div>
+                        <p className="mt-2 text-[10px] text-muted-foreground leading-normal">
+                          Converts physical distance (D_segment) to travel time using real-time segment density (C_density) and weather coefficients (W_weather = 0.85 during rainfall).
+                        </p>
+                      </div>
+
+                      {selectedEntry ? (
+                        <div className="rounded-xl border border-border bg-input/20 p-3.5">
+                          <p className="text-xs font-bold text-foreground mb-2.5">LIVE KINEMATIC ETAs TO DESTINATION</p>
+                          <div className="overflow-hidden rounded-lg border border-border/70 text-xs">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="bg-input/50 text-muted-foreground font-semibold border-b border-border">
+                                  <th className="p-2">Station Source</th>
+                                  <th className="p-2 text-right">Kinematic Path ETA</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border/40">
+                                {STATIONS.map((station) => {
+                                  const alloc = stationAssignments.incidentAllocations
+                                    .find((ia: any) => ia.id === selectedEntry.incident.id)
+                                    ?.stations.find((s: any) => s.station === station.name);
+                                  const etaVal = alloc ? alloc.eta : station.responseMin + (selectedEntry.esc.nearbyCount * 1.5);
+                                  return (
+                                    <tr key={station.name} className="hover:bg-input/10">
+                                      <td className="p-2 font-medium">{station.name}</td>
+                                      <td className="p-2 text-right font-mono text-primary font-bold">{etaVal.toFixed(1)} mins</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-xs text-muted-foreground py-4 border border-dashed border-border rounded-xl">
+                          Select an incident above to map travel times.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {inspectTab === "dispatch" && (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-border bg-input/20 p-3.5 space-y-3">
+                        <div>
+                          <p className="text-[10px] font-bold text-foreground mb-1">SINGLE STATION COST FUNCTION</p>
+                          <div className="font-mono text-[11px] text-primary bg-background/50 p-2 rounded border border-border/50 select-all leading-normal">
+                            {"Cost_dispatch = 1.0 * T_travel + 10.0 * Deficit"}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-foreground mb-1">SWARM PROTOCOL COST FUNCTION (TRIGGERED ON DEFICIT)</p>
+                          <div className="font-mono text-[11px] text-primary bg-background/50 p-2 rounded border border-border/50 select-all leading-normal">
+                            {"Cost_swarm = 1.0 * max(T_travel, i) + 5.0 * (K - 1) + 10.0 * Deficit_swarm"}
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-normal">
+                          Where K is the number of stations in the swarm. A coordination penalty (+5.0 * (K - 1)) is added for multiple dispatch units. The swarm protocol executes if Cost_swarm &lt; Cost_dispatch.
+                        </p>
+                      </div>
+
+                      {selectedEntry ? (() => {
+                        const allocation = stationAssignments.incidentAllocations.find((ia: any) => ia.id === selectedEntry.incident.id);
+                        const stationsAllocated = allocation?.stations ?? [];
+                        const req = allocation?.requested ?? selectedEntry.esc.recommend.officers;
+                        const ass = allocation?.assigned ?? 0;
+                        const isSwarm = stationsAllocated.length > 1;
+
+                        return (
+                          <div className="rounded-xl border border-border bg-input/20 p-3.5 space-y-2">
+                            <p className="text-xs font-bold text-foreground">LIVE ASSIGNMENT STATS</p>
+                            <div className="space-y-1.5 text-xs">
+                              <div className="flex justify-between border-b border-border/30 pb-1">
+                                <span className="text-muted-foreground">Required Officers</span>
+                                <span className="font-mono font-semibold">{req}</span>
+                              </div>
+                              <div className="flex justify-between border-b border-border/30 pb-1">
+                                <span className="text-muted-foreground">Assigned Officers</span>
+                                <span className="font-mono font-semibold">{ass} ({req > 0 ? Math.round((ass/req)*100) : 0}%)</span>
+                              </div>
+                              <div className="flex justify-between border-b border-border/30 pb-1">
+                                <span className="text-muted-foreground">Swarm State</span>
+                                <span className={`font-mono font-semibold ${isSwarm ? "text-success" : "text-muted-foreground"}`}>{isSwarm ? "SWARM SQUADS DISPATCHED" : "SINGLE STATION ADEQUATE"}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })() : (
+                        <div className="text-center text-xs text-muted-foreground py-4 border border-dashed border-border rounded-xl">
+                          Select an incident above to inspect swarm decision bounds.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Panel>
 
                 <Panel title="Resource Conflict Resolver" icon={<Truck className="size-4" />}>

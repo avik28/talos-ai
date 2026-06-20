@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Brain, CalendarClock, Siren } from "lucide-react";
+import { Brain, CalendarClock, Siren, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const links = [
@@ -17,11 +17,33 @@ const links = [
 export function AppHeader() {
   // Render the live clock only after mount to avoid SSR/client hydration mismatch.
   const [now, setNow] = useState<Date | null>(null);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
     setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 1000);
+
+    // Read the active theme from localStorage on client-side mount
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+    setMounted(true);
+
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const root = window.document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme, mounted]);
 
   return (
     <header className="sticky top-0 z-[600] border-b border-border panel-glass">
@@ -51,22 +73,33 @@ export function AppHeader() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-4 text-xs lg:flex">
-          <span className="flex items-center gap-1.5 text-success">
-            <span className="size-2 rounded-full bg-success pulse-dot" /> SYSTEM LIVE
-          </span>
-          <span
-            className="text-mono w-[88px] text-right text-muted-foreground"
-            suppressHydrationWarning
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+            className="flex size-9 items-center justify-center rounded-xl border border-border bg-input/30 text-muted-foreground hover:bg-input hover:text-foreground transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md"
+            aria-label="Toggle Theme"
+            title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {now
-              ? now.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-              })
-              : "--:--:--"}
-          </span>
+            {theme === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-indigo-500" />}
+          </button>
+
+          <div className="hidden items-center gap-4 text-xs lg:flex">
+            <span className="flex items-center gap-1.5 text-success">
+              <span className="size-2 rounded-full bg-success pulse-dot" /> SYSTEM LIVE
+            </span>
+            <span
+              className="text-mono w-[88px] text-right text-muted-foreground"
+              suppressHydrationWarning
+            >
+              {now
+                ? now.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })
+                : "--:--:--"}
+            </span>
+          </div>
         </div>
       </div>
     </header>
