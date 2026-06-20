@@ -826,3 +826,100 @@ export function parseWhatIfQuery(query: string, state: { closedRoads: string[], 
     description: "Type commands like 'What if I close MG Road?' or 'What if I deploy 12 officers?' to run simulation projections."
   };
 }
+
+export interface ModelPredictionInput {
+  event_type: "planned" | "unplanned";
+  event_cause: string;
+  corridor: string;
+  veh_type: string;
+  priority: string;
+  zone: string;
+  latitude: number;
+  longitude: number;
+  endlatitude?: number;
+  endlongitude?: number;
+  created_date?: string;
+  reason_breakdown?: string;
+  actual_clearance_time?: number;
+}
+
+export interface ModelPredictionResponse {
+  s_impact: number;
+  strike_threshold: number;
+  officers: number;
+  barricades: number;
+  tow_trucks: number;
+  strike_issued: boolean;
+  features: {
+    hour_of_day: number;
+    day_of_week: number;
+    is_peak_hour: number;
+    impact_distance_km: number;
+    has_mech_failure: number;
+    t_base: number;
+  };
+}
+
+export async function predictImpactWithModel(
+  input: ModelPredictionInput
+): Promise<ModelPredictionResponse> {
+  try {
+    const response = await fetch("http://localhost:8000/api/predict-impact", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      throw new Error(`Server returned status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.warn("FastAPI predict-impact service failed, using local mock algorithm...", error);
+    
+    // Local fallback replicating the ML model calculations
+    const isPeak = input.created_date 
+      ? (() => {
+          const hour = new Date(input.created_date).getHours();
+          return (hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 20);
+        })()
+      : false;
+      
+    const distance = 2.0;
+    const s_impact = calculateDynamicImpactScore({
+      planned: input.event_type === "planned",
+      severity: (input.priority === "Critical" ? "Critical" : input.priority === "High" ? "High" : input.priority === "Medium" ? "Medium" : "Low") as any,
+      historicalClosureProbability: 0.25,
+      estimatedVolume: input.event_type === "planned" ? 18000 : 8000,
+      hourlyCapacity: 4000,
+      durationHr: 2
+    });
+    
+    const strike_threshold = s_impact * 1.25;
+    const officers = Math.ceil(distance / 1.5) + 2;
+    const barricades = Math.max(2, Math.round(5 * (s_impact / 100) * 8));
+    const tow_trucks = Math.max(1, Math.round(s_impact / 33));
+    
+    const strike_issued = input.actual_clearance_time 
+      ? input.actual_clearance_time > strike_threshold
+      : false;
+
+    return {
+      s_impact,
+      strike_threshold,
+      officers,
+      barricades,
+      tow_trucks,
+      strike_issued,
+      features: {
+        hour_of_day: input.created_date ? new Date(input.created_date).getHours() : new Date().getHours(),
+        day_of_week: input.created_date ? new Date(input.created_date).getDay() : new Date().getDay(),
+        is_peak_hour: isPeak ? 1 : 0,
+        impact_distance_km: distance,
+        has_mech_failure: 0,
+        t_base: 45.0
+      }
+    };
+  }
+}

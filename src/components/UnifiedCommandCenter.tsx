@@ -27,9 +27,11 @@ import {
   calculateResourceRequirements,
   bootstrapFromHistoricalData,
   parseWhatIfQuery,
+  predictImpactWithModel,
   type Corridor,
   type Route,
-  type WhatIfResponse
+  type WhatIfResponse,
+  type ModelPredictionResponse
 } from "@/lib/diversionEngine";
 
 const sevBg: Record<Severity, string> = {
@@ -128,11 +130,30 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // ==========================================
   const [corridors, setCorridors] = useState<Corridor[]>(INITIAL_CORRIDORS);
   const [selectedCorridorId, setSelectedCorridorId] = useState<string>("mg_road");
+  const selectedCorridor = useMemo(() => {
+    return corridors.find((c) => c.id === selectedCorridorId) || corridors[0];
+  }, [corridors, selectedCorridorId]);
   const [closedRoads, setClosedRoads] = useState<string[]>([]);
   const [deployedOfficers, setDeployedOfficers] = useState<number>(0);
   const [rain, setRain] = useState<boolean>(false);
   const [peakHour, setPeakHour] = useState<boolean>(false);
   const [activeStackType, setActiveStackType] = useState<"alpha" | "beta" | "gamma">("alpha");
+
+  // ML Model simulation states
+  const [modelLoading, setModelLoading] = useState<boolean>(false);
+  const [modelOutputs, setModelOutputs] = useState<ModelPredictionResponse | null>(null);
+  const [diversionWarnings, setDiversionWarnings] = useState<string[]>([]);
+  const [assessmentTrigger, setAssessmentTrigger] = useState<number>(0);
+
+  const [intakeType, setIntakeType] = useState<"planned" | "unplanned">("unplanned");
+  const [eventCause, setEventCause] = useState<string>("accident");
+  const [corridorName, setCorridorName] = useState<string>("mg_road");
+  const [vehType, setVehType] = useState<string>("heavy_vehicle");
+  const [priorityLevel, setPriorityLevel] = useState<string>("High");
+  const [reasonText, setReasonText] = useState<string>("");
+  const [actualClearanceTime, setActualClearanceTime] = useState<number>(45);
+  const [estimatedVolume, setEstimatedVolume] = useState<number>(15000);
+  const [networkCapacity, setNetworkCapacity] = useState<number>(4000);
 
   // Load Demo Incidents helper
   function loadDemoIncidents() {
@@ -254,6 +275,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     const dynCorridor = generateDynamicCorridor(selectedIncident);
     setCorridors([dynCorridor]);
     setSelectedCorridorId("incident_corridor");
+    setCorridorName("incident_corridor");
 
     // 2. Auto-derive rain weather
     const isRain = selectedIncident.kind === "Waterlogging";
@@ -282,10 +304,204 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     const newClosed = getClosedRoadsFromIncident(selectedIncident);
     setClosedRoads(newClosed);
 
+    // 7. Auto-derive new model variables
+    const isPlanned = selectedIncident.kind === "VIP Movement";
+    setIntakeType(isPlanned ? "planned" : "unplanned");
+    
+    const causeMap: Record<string, string> = {
+      "Accident": "accident",
+      "Breakdown": "vehicle_breakdown",
+      "Signal Failure": "others",
+      "Waterlogging": "water_logging",
+      "Road Block": "others",
+      "VIP Movement": "public_event",
+      "Crowd Surge": "public_event"
+    };
+    setEventCause(causeMap[selectedIncident.kind] || "others");
+    setPriorityLevel(selectedIncident.severity === "Critical" ? "High" : selectedIncident.severity);
+    setReasonText(selectedIncident.description || "");
+    
+    const desc = (selectedIncident.description || "").toLowerCase();
+    if (desc.includes("bus")) setVehType("bmtc_bus");
+    else if (desc.includes("truck") || desc.includes("lcv")) setVehType("lcv");
+    else if (desc.includes("car")) setVehType("private_car");
+    else setVehType("heavy_vehicle");
+    
+    setEstimatedVolume(isPlanned ? 18000 : 8000);
+    setNetworkCapacity(4000);
+    setActualClearanceTime(45);
+
     // Reset predictions when switching incidents
     setPrediction(null);
     setScheduled(false);
   }, [selectedIncidentId, selectedIncident]);
+
+  // ML Model prediction caller
+  useEffect(() => {
+    if (!selectedCorridor) return;
+    
+    let isCancelled = false;
+    const triggerPrediction = async () => {
+      setModelLoading(true);
+      
+      const mappedCorridor = corridorName === "incident_corridor" ? "Non-corridor" : corridorName === "mg_road" ? "CBD 2" : corridorName === "hebbal" ? "Tumkur Road" : "ORR East 1";
+      const mappedPriority = priorityLevel === "Critical" ? "High" : priorityLevel;
+      const mappedZone = selectedCorridor.zone || "Central Zone 2";
+      
+      const inputs = {
+        event_type: intakeType,
+        event_cause: eventCause,
+        corridor: mappedCorridor,
+        veh_type: vehType,
+        priority: mappedPriority,
+        zone: mappedZone,
+        latitude: selectedCorridor.lat,
+        longitude: selectedCorridor.lng,
+        endlatitude: selectedCorridor.lat + 0.005,
+        endlongitude: selectedCorridor.lng + 0.005,
+        created_date: new Date(selectedIncident ? selectedIncident.createdAt : Date.now()).toISOString(),
+        reason_breakdown: reasonText,
+        actual_clearance_time: actualClearanceTime
+      };
+
+      if (selectedCorridorId === "incident_corridor" && selectedIncident) {
+        const allIncidentsPayload = liveIncidents.map(inc => {
+          const place = ALL_PLACES.find(p => inc.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+          const causeMap: Record<string, string> = {
+            "Accident": "accident",
+            "Breakdown": "vehicle_breakdown",
+            "Signal Failure": "others",
+            "Waterlogging": "water_logging",
+            "Road Block": "others",
+            "VIP Movement": "public_event",
+            "Crowd Surge": "public_event"
+          };
+          return {
+            id: inc.id,
+            latitude: place.lat,
+            longitude: place.lng,
+            severity: inc.severity,
+            kind: inc.kind,
+            event_type: inc.kind === "VIP Movement" ? "planned" : "unplanned",
+            event_cause: causeMap[inc.kind] || "others",
+            corridor: "Non-corridor",
+            veh_type: "heavy_vehicle",
+            priority: inc.severity === "Critical" ? "High" : inc.severity,
+            reason_breakdown: inc.description || "",
+            created_date: new Date(inc.createdAt).toISOString(),
+            endlatitude: place.lat + 0.005,
+            endlongitude: place.lng + 0.005
+          };
+        });
+
+        const primaryPayload = {
+          id: selectedIncident.id,
+          latitude: selectedCorridor.lat,
+          longitude: selectedCorridor.lng,
+          severity: selectedIncident.severity,
+          kind: selectedIncident.kind,
+          event_type: intakeType,
+          event_cause: eventCause,
+          corridor: "Non-corridor",
+          veh_type: vehType,
+          priority: mappedPriority,
+          zone: mappedZone,
+          reason_breakdown: reasonText,
+          created_date: new Date(selectedIncident.createdAt).toISOString(),
+          endlatitude: selectedCorridor.lat + 0.005,
+          endlongitude: selectedCorridor.lng + 0.005
+        };
+
+        try {
+          const response = await fetch("http://localhost:8000/api/generate-diversions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              primary_incident: primaryPayload,
+              all_incidents: allIncidentsPayload,
+              rain,
+              peak_hour: peakHour,
+              deployed_officers: deployedOfficers
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Server returned status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          if (!isCancelled) {
+            setModelOutputs({
+              s_impact: data.s_impact,
+              strike_threshold: data.strike_threshold,
+              officers: Math.ceil((data.routes[0]?.distanceKm || 2.0) / 1.5) + 2,
+              barricades: Math.max(2, Math.round(5 * (data.s_impact / 100) * 8)),
+              tow_trucks: Math.max(1, Math.round(data.s_impact / 33)),
+              strike_issued: actualClearanceTime > data.strike_threshold,
+              features: {
+                hour_of_day: new Date(selectedIncident.createdAt).getHours(),
+                day_of_week: new Date(selectedIncident.createdAt).getDay(),
+                is_peak_hour: peakHour ? 1 : 0,
+                impact_distance_km: data.routes[0]?.distanceKm || 2.0,
+                has_mech_failure: reasonText ? 1 : 0,
+                t_base: 45.0
+              }
+            });
+
+            setDiversionWarnings(data.warnings || []);
+
+            setCorridors((prevCorridors) => {
+              return prevCorridors.map((c) => {
+                if (c.id === "incident_corridor") {
+                  return {
+                    ...c,
+                    stacks: {
+                      ...c.stacks,
+                      [activeStackType]: data.routes
+                    }
+                  };
+                }
+                return c;
+              });
+            });
+
+            setOsrmGeometries((prev) => {
+              const cleaned = { ...prev };
+              data.routes.forEach((r: any) => {
+                delete cleaned[r.id];
+              });
+              return cleaned;
+            });
+
+            setModelLoading(false);
+          }
+        } catch (err) {
+          console.warn("FastAPI generate-diversions failed, running predict-impact fallback...", err);
+          const result = await predictImpactWithModel(inputs);
+          if (!isCancelled) {
+            setModelOutputs(result);
+            setDiversionWarnings([]);
+            setModelLoading(false);
+          }
+        }
+      } else {
+        const result = await predictImpactWithModel(inputs);
+        if (!isCancelled) {
+          setModelOutputs(result);
+          setDiversionWarnings([]);
+          setModelLoading(false);
+        }
+      }
+    };
+
+    triggerPrediction();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [intakeType, eventCause, corridorName, vehType, priorityLevel, reasonText, actualClearanceTime, estimatedVolume, networkCapacity, selectedCorridor, selectedIncident, selectedCorridorId, rain, peakHour, deployedOfficers, activeStackType]);
 
   // ==========================================
   // COMMAND CENTER CORE (AI prediction trigger)
@@ -377,11 +593,14 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
   const [autoApplyLiveIncidents, setAutoApplyLiveIncidents] = useState<boolean>(true);
 
-  const selectedCorridor = useMemo(() => {
-    return corridors.find((c) => c.id === selectedCorridorId) || corridors[0];
-  }, [corridors, selectedCorridorId]);
-
   const resources = useMemo(() => {
+    if (modelOutputs) {
+      return {
+        barricades: modelOutputs.barricades,
+        officers: modelOutputs.officers,
+        towTrucks: modelOutputs.tow_trucks
+      };
+    }
     if (!selectedCorridor) return { barricades: 0, officers: 0, towTrucks: 0 };
     const activeStack = selectedCorridor.stacks[activeStackType];
     if (!activeStack || activeStack.length === 0) return { barricades: 0, officers: 0, towTrucks: 0 };
@@ -411,7 +630,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       distanceKm: primaryRoute.distanceKm,
       attendees: planned ? 18000 : undefined,
     });
-  }, [selectedCorridor, activeStackType, selectedIncident]);
+  }, [selectedCorridor, activeStackType, selectedIncident, modelOutputs]);
 
   const liveClosedRoads = useMemo(() => {
     if (!autoApplyLiveIncidents) return [];
@@ -444,7 +663,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
   // Fetch coordinates for the selected corridor's routes to snap them to actual roads
   useEffect(() => {
-    if (!selectedCorridor) return;
+    if (!selectedCorridor || selectedCorridor.id === "incident_corridor") return;
 
     const fetchCorridorGeometries = async () => {
       const activeCorridor = selectedCorridor;
@@ -935,6 +1154,14 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   }
 
   function triggerLiveStrike() {
+    if (!modelOutputs) {
+      toast.error("Model prediction not available. Please wait.");
+      return;
+    }
+    
+    const strikeThreshold = modelOutputs.strike_threshold;
+    const isStrike = actualClearanceTime > strikeThreshold;
+    
     setCorridors((prevCorridors) => {
       return prevCorridors.map((c) => {
         if (c.id === selectedCorridorId) {
@@ -942,25 +1169,30 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
           const activeRoutes = [...stack[activeStackType]];
           const primaryRoute = { ...activeRoutes[0] };
 
-          const newStrikes = primaryRoute.strikes + 1;
-          primaryRoute.strikes = newStrikes;
+          if (isStrike) {
+            const newStrikes = primaryRoute.strikes + 1;
+            primaryRoute.strikes = newStrikes;
 
-          if (newStrikes >= 3) {
-            primaryRoute.status = "Penalty Box";
-            primaryRoute.cooldownRemaining = 30;
-            const rotatedRoutes = [activeRoutes[1], activeRoutes[2], primaryRoute];
-            toast.error(`3-Strike Threshold breached on ${primaryRoute.name}! Demoting to Penalty Box. Promoted ${activeRoutes[1].name} to Primary.`);
-            return {
-              ...c,
-              stacks: { ...stack, [activeStackType]: rotatedRoutes }
-            };
+            if (newStrikes >= 3) {
+              primaryRoute.status = "Penalty Box";
+              primaryRoute.cooldownRemaining = 30;
+              const rotatedRoutes = [activeRoutes[1], activeRoutes[2], primaryRoute];
+              toast.error(`3-Strike Threshold breached! Actual clearance (${actualClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Demoting ${primaryRoute.name} to Penalty Box. Promoted ${activeRoutes[1].name} to Primary.`);
+              return {
+                ...c,
+                stacks: { ...stack, [activeStackType]: rotatedRoutes }
+              };
+            } else {
+              toast.warning(`Strike issued! Actual clearance (${actualClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Strikes: ${newStrikes}/3`);
+              activeRoutes[0] = primaryRoute;
+              return {
+                ...c,
+                stacks: { ...stack, [activeStackType]: activeRoutes }
+              };
+            }
           } else {
-            toast.warning(`Route ${primaryRoute.name} received 1 Strike! Strikes: ${newStrikes}/3`);
-            activeRoutes[0] = primaryRoute;
-            return {
-              ...c,
-              stacks: { ...stack, [activeStackType]: activeRoutes }
-            };
+            toast.success(`Clearance successful! Actual clearance (${actualClearanceTime} mins) is within strike threshold (${strikeThreshold.toFixed(1)} mins). No strikes issued.`);
+            return c;
           }
         }
         return c;
@@ -1122,47 +1354,89 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
               )}
             </div>
 
-            {/* Active Simulation Context Variables */}
-            {selectedIncident && (
-              <div className="rounded-2xl border border-border panel-glass p-5 text-xs">
-                <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
-                  <Brain className="size-4 text-primary" />
-                  <h3 className="font-bold uppercase tracking-wide">Incident Sandbox Context</h3>
+            {/* Route Stack Rotation & Strikes */}
+            <div className="rounded-2xl border border-border panel-glass p-5 flex flex-col justify-between text-xs">
+              <div>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <RotateCw className="size-4 text-primary animate-spin-slow" />
+                    <h2 className="text-xs font-bold uppercase tracking-wide">Route Stack Rotation & Strikes</h2>
+                  </div>
+                  <button
+                    onClick={triggerLiveStrike}
+                    className="flex items-center gap-1 rounded-lg bg-critical px-2 py-0.5 text-[10px] font-bold text-primary-foreground shadow-glow transition hover:brightness-110"
+                  >
+                    <AlertTriangle className="size-3" /> Trigger Strike
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Affected Corridor:</span>
-                    <span className="font-bold text-foreground capitalize">
-                      {selectedCorridor.name.replace(" Corridor", "")}
-                    </span>
+
+                <div className="rounded-xl border border-border bg-input/30 p-3">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5 mb-2 text-[10px]">
+                    <span className="font-bold">ACTIVE STACK ({activeStackType.toUpperCase()}) FOR {selectedCorridor.name.toUpperCase()}</span>
+                    <span className="text-muted-foreground font-semibold">Hierarchy</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Active Stack:</span>
-                    <span className="font-bold text-foreground capitalize">
-                      Stack {activeStackType}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Environmental Factors:</span>
-                    <span className="font-bold text-foreground">
-                      {rain ? "Rainy" : "Clear"} · {peakHour ? "Peak Hour" : "Off-Peak"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Clearance officers:</span>
-                    <span className="font-bold text-foreground">
-                      {deployedOfficers} Officers deployed
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Detour closure:</span>
-                    <span className="font-bold text-critical font-mono">
-                      {effectiveClosedRoads.join(", ") || "None"}
-                    </span>
+                  
+                  <div className="space-y-1.5">
+                    {selectedCorridor.stacks[activeStackType].map((route, idx) => {
+                      const isPrimary = idx === 0;
+                      const isSecondary = idx === 1;
+
+                      return (
+                        <div key={route.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-2 text-[11px]">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-[9px] font-bold uppercase rounded px-1 py-0.2 ${
+                                isPrimary ? "bg-success/20 text-success border border-success/40" :
+                                isSecondary ? "bg-warning/20 text-warning border border-warning/40" :
+                                "bg-muted/40 text-muted-foreground border border-border"
+                              }`}>
+                                {isPrimary ? "Primary" : isSecondary ? "Secondary" : "Tertiary"}
+                              </span>
+                              <span className="font-semibold text-foreground">{route.name}</span>
+                            </div>
+                            <div className="mt-0.5 flex gap-3 text-[9px] text-muted-foreground">
+                              <span>Distance: {route.distanceKm} km</span>
+                              <span>Junctions: {route.crossStreets}</span>
+                              <span>Base: {route.baseTimeMin}m</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              <span className="text-[8px] uppercase text-muted-foreground block">Strikes</span>
+                              <span className={`text-[10px] font-extrabold ${route.strikes >= 3 ? "text-critical" : route.strikes > 0 ? "text-warning" : "text-muted-foreground"}`}>
+                                {route.strikes}/3
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[8px] uppercase text-muted-foreground block">Status</span>
+                              <span className={`text-[9px] font-bold uppercase rounded px-1 py-0.2 ${
+                                route.status === "Active" ? "bg-success/15 text-success" :
+                                route.status === "Penalty Box" ? "bg-critical/15 text-critical" :
+                                "bg-warning/15 text-warning"
+                              }`}>
+                                {route.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
-            )}
+
+              <div className="mt-3 grid gap-2 grid-cols-2 text-[9px] leading-normal text-muted-foreground border-t border-border/40 pt-2.5">
+                <div className="rounded-lg border border-critical/20 bg-critical/5 p-1.5">
+                  <span className="font-bold text-critical block">PENALTY BOX</span>
+                  3-strike routes cooldown for 30 rounds.
+                </div>
+                <div className="rounded-lg border border-info/20 bg-info/5 p-1.5">
+                  <span className="font-bold text-info block">REHABILITATION</span>
+                  Cooldown routes re-tested off-peak.
+                </div>
+              </div>
+            </div>
 
             {/* What-If Console */}
             <div className="rounded-2xl border border-border panel-glass p-5">
@@ -1226,117 +1500,310 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
         </section>
 
-        {/* WORKSPACE DETAIL GRID (BELOW MAP) */}
+          {/* WORKSPACE DETAIL GRID (BELOW MAP) */}
         <section className="mt-8 grid gap-6 md:grid-cols-2">
           
-          {/* Column 1: Route Stack Rotation & Strikes */}
-          <div className="rounded-2xl border border-border panel-glass p-5 flex flex-col justify-between">
-            <div>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <RotateCw className="size-4 text-primary" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Route Stack Rotation & Strikes</h2>
+          {/* Column 1: Dynamic Event Intake */}
+          {selectedIncident ? (
+            <div className="rounded-2xl border border-border panel-glass p-5 text-xs flex flex-col justify-between">
+              <div>
+                <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                  <Brain className="size-4 text-primary animate-pulse" />
+                  <h3 className="font-bold uppercase tracking-wide">Dynamic Event Intake</h3>
                 </div>
-                <button
-                  onClick={triggerLiveStrike}
-                  className="flex items-center gap-1 rounded-lg bg-critical px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-glow transition hover:brightness-110"
-                >
-                  <AlertTriangle className="size-3.5" /> Trigger Strike
-                </button>
-              </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {/* Intake Type Selector */}
+                  <div>
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Intake Type</label>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setIntakeType("unplanned")}
+                        className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${
+                          intakeType === "unplanned"
+                            ? "bg-primary/20 text-primary border-primary/40 font-bold"
+                            : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Unplanned (Incident)
+                      </button>
+                      <button
+                        onClick={() => setIntakeType("planned")}
+                        className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${
+                          intakeType === "planned"
+                            ? "bg-primary/20 text-primary border-primary/40 font-bold"
+                            : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Planned (Event)
+                      </button>
+                    </div>
+                  </div>
 
-              <div className="rounded-xl border border-border bg-input/30 p-4">
-                <div className="flex items-center justify-between border-b border-border pb-2 mb-3 text-xs">
-                  <span className="font-bold">ACTIVE STACK ({activeStackType.toUpperCase()}) FOR {selectedCorridor.name.toUpperCase()}</span>
-                  <span className="text-muted-foreground font-semibold">Hierarchy Order</span>
-                </div>
-                
-                <div className="space-y-2">
-                  {selectedCorridor.stacks[activeStackType].map((route, idx) => {
-                    const isPrimary = idx === 0;
-                    const isSecondary = idx === 1;
+                  {/* Corridor Selector */}
+                  <div>
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Corridor</label>
+                    <select
+                      value={corridorName}
+                      onChange={(e) => {
+                        setCorridorName(e.target.value);
+                        setSelectedCorridorId(e.target.value);
+                      }}
+                      className="w-full rounded-md border border-border bg-input/40 px-2 py-1 text-xs outline-none text-foreground font-semibold"
+                    >
+                      <option value="incident_corridor">Incident Corridor (Dynamic)</option>
+                      <option value="mg_road">MG Road Corridor</option>
+                      <option value="hebbal">Hebbal Flyover Corridor</option>
+                      <option value="orr">Outer Ring Road Corridor</option>
+                    </select>
+                  </div>
 
-                    return (
-                      <div key={route.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background/50 p-3 text-xs">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${
-                              isPrimary ? "bg-success/20 text-success border border-success/40" :
-                              isSecondary ? "bg-warning/20 text-warning border border-warning/40" :
-                              "bg-muted/40 text-muted-foreground border border-border"
-                            }`}>
-                              {isPrimary ? "Primary" : isSecondary ? "Secondary" : "Tertiary"}
-                            </span>
-                            <span className="font-semibold text-foreground">{route.name}</span>
-                          </div>
-                          <div className="mt-1 flex gap-4 text-[10px] text-muted-foreground">
-                            <span>Distance: {route.distanceKm} km</span>
-                            <span>Junctions: {route.crossStreets}</span>
-                            <span>Base Time: {route.baseTimeMin} mins</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <span className="text-[9px] uppercase tracking-wide text-muted-foreground block">Strikes</span>
-                            <span className={`text-xs font-extrabold ${route.strikes >= 3 ? "text-critical" : route.strikes > 0 ? "text-warning" : "text-muted-foreground"}`}>
-                              {route.strikes}/3
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] uppercase tracking-wide text-muted-foreground block">Status</span>
-                            <span className={`text-[10px] font-bold uppercase rounded px-1.5 py-0.5 ${
-                              route.status === "Active" ? "bg-success/15 text-success" :
-                              route.status === "Penalty Box" ? "bg-critical/15 text-critical" :
-                              "bg-warning/15 text-warning"
-                            }`}>
-                              {route.status}
-                            </span>
-                          </div>
-                        </div>
+                  {/* Condition Fields */}
+                  {intakeType === "unplanned" ? (
+                    <>
+                      {/* Event Cause */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
+                        <select
+                          value={eventCause}
+                          onChange={(e) => setEventCause(e.target.value)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                        >
+                          <option value="accident">Accident</option>
+                          <option value="vehicle_breakdown">Vehicle Breakdown</option>
+                          <option value="water_logging">Water Logging / Flooding</option>
+                          <option value="tree_fall">Tree Fall</option>
+                          <option value="pot_holes">Potholes / Road Damage</option>
+                          <option value="others">Others</option>
+                        </select>
                       </div>
-                    );
-                  })}
+
+                      {/* Vehicle Type */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Vehicle Type</label>
+                        <select
+                          value={vehType}
+                          onChange={(e) => setVehType(e.target.value)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                        >
+                          <option value="private_car">Private Car / SUV</option>
+                          <option value="bmtc_bus">BMTC Bus</option>
+                          <option value="ksrtc_bus">KSRTC Bus</option>
+                          <option value="private_bus">Private Bus</option>
+                          <option value="lcv">Light Commercial Vehicle (LCV)</option>
+                          <option value="heavy_vehicle">Heavy Vehicle (HGV/Truck)</option>
+                          <option value="none">None / No Vehicle</option>
+                        </select>
+                      </div>
+
+                      {/* Priority Level */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Priority / Severity</label>
+                        <select
+                          value={priorityLevel}
+                          onChange={(e) => setPriorityLevel(e.target.value)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                        >
+                          <option value="Low">Low</option>
+                          <option value="Medium">Medium</option>
+                          <option value="High">High</option>
+                        </select>
+                      </div>
+
+                      {/* Reason Description Text */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Incident Details</label>
+                        <input
+                          type="text"
+                          value={reasonText}
+                          onChange={(e) => setReasonText(e.target.value)}
+                          placeholder="e.g. engine stall, tyres burst, brake failure"
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Event Cause */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
+                        <select
+                          value={eventCause}
+                          onChange={(e) => setEventCause(e.target.value)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                        >
+                          <option value="public_event">Public Event (Sports/Concerts)</option>
+                          <option value="others">VIP Movement / Rally</option>
+                        </select>
+                      </div>
+
+                      {/* Estimated Volume Vest */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Estimated Volume (V_est)</label>
+                        <input
+                          type="number"
+                          value={estimatedVolume}
+                          onChange={(e) => setEstimatedVolume(parseInt(e.target.value) || 0)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                        />
+                      </div>
+
+                      {/* Network Capacity Cnet */}
+                      <div>
+                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Network Capacity (C_network)</label>
+                        <input
+                          type="number"
+                          value={networkCapacity}
+                          onChange={(e) => setNetworkCapacity(parseInt(e.target.value) || 0)}
+                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Simulated Clearance Audit Slider */}
+                <div className="border-t border-border pt-3 mt-3">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Actual Clearance Time</label>
+                    <span className="text-xs font-bold font-mono text-primary">{actualClearanceTime} mins</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="180"
+                    step="5"
+                    value={actualClearanceTime}
+                    onChange={(e) => setActualClearanceTime(parseInt(e.target.value))}
+                    className="w-full accent-primary cursor-pointer"
+                  />
+                  <span className="text-[9px] text-muted-foreground block mt-1 leading-tight">
+                    Adjust to test if clearance breaches the strike threshold of {(modelOutputs ? modelOutputs.strike_threshold : 0).toFixed(1)} mins.
+                  </span>
                 </div>
               </div>
-            </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 text-[10px] leading-normal text-muted-foreground">
-              <div className="rounded-lg border border-critical/20 bg-critical/5 p-2">
-                <span className="font-bold text-critical block">PENALTY BOX</span>
-                Routes exceeding 3-strikes enter a 30-day cooldown to isolate daily commuter flow.
-              </div>
-              <div className="rounded-lg border border-info/20 bg-info/5 p-2">
-                <span className="font-bold text-info block">REHABILITATION</span>
-                Cooldown routes are safely re-tested only during off-peak hours (11 PM - 4 AM).
-              </div>
+              {/* Assessment Confirmation Button */}
+              <button
+                onClick={() => {
+                  setAssessmentTrigger(prev => prev + 1);
+                  toast.success("AI Assessment triggered! Running predictive inferences...");
+                }}
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow-glow transition hover:brightness-110 mt-4"
+              >
+                <Brain className="size-4 animate-pulse" /> Run AI Assessment & Generate Detours
+              </button>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center h-full min-h-[300px] panel-glass">
+              <Brain className="size-8 text-muted-foreground/40 mb-2" />
+              <p>Please select an active incident to view or edit the intake parameters.</p>
+            </div>
+          )}
 
           {/* Column 2: Tactical Resource Recommendations & Projection Output */}
           <div className="space-y-6">
             
-            {/* Algorithmic Resource Recommendation */}
+            {/* ML Telemetry & Resource Recommendations */}
             <div className="rounded-2xl border border-border panel-glass p-5">
-              <div className="mb-4 flex items-center gap-2">
-                <ShieldAlert className="size-4 text-primary" />
-                <h2 className="text-sm font-bold uppercase tracking-wide">Tactical Resource Recommendations</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="size-4 text-primary" />
+                  <h2 className="text-sm font-bold uppercase tracking-wide">ML Telemetry & Resource Matrix</h2>
+                </div>
+                {modelLoading && (
+                  <span className="text-[10px] text-primary animate-pulse font-semibold">Updating...</span>
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                  <Cone className="mx-auto mb-1 size-5 text-primary" />
-                  <p className="text-lg font-bold text-mono">{resources.barricades}</p>
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Barricades</span>
+
+              {/* Real-time Telemetry Section */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
+                  <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1 flex items-center gap-1">
+                    {"Expected Resolution ($S_{impact}$)"}
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-bold font-mono text-foreground">
+                      {modelOutputs ? modelOutputs.s_impact.toFixed(1) : "---"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">mins</span>
+                  </div>
+                  {modelOutputs && (
+                    <div className="absolute right-2 top-2">
+                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
+                        Model OP
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                  <ShieldAlert className="mx-auto mb-1 size-5 text-primary" />
-                  <p className="text-lg font-bold text-mono">{resources.officers}</p>
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Personnel</span>
+
+                <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
+                  <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1">
+                    Demotion Threshold (1.25x)
+                  </span>
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-xl font-bold font-mono text-warning">
+                      {modelOutputs ? modelOutputs.strike_threshold.toFixed(1) : "---"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">mins</span>
+                  </div>
+                  {modelOutputs && (
+                    <div className="absolute right-2 top-2">
+                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
+                        Model OP
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                  <Truck className="mx-auto mb-1 size-5 text-primary" />
-                  <p className="text-lg font-bold text-mono">{resources.towTrucks}</p>
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tow Trucks</span>
+              </div>
+
+              {/* Proximity Conflicts warnings box */}
+              {diversionWarnings.length > 0 && (
+                <div className="mb-4 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1.5 text-warning">
+                      <AlertTriangle className="size-4 animate-bounce" />
+                      <span className="font-bold uppercase tracking-wider text-[10px]">Multi-Incident Proximity Conflict</span>
+                    </div>
+                    <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
+                      Model OP
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-muted-foreground text-[10px] list-disc list-inside">
+                    {diversionWarnings.map((warn, i) => (
+                      <li key={i}>{warn}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Resource Dispatch Matrix Section */}
+              <div className="border-t border-border/60 pt-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
+                    Resource Dispatch Matrix
+                  </span>
+                  {modelOutputs && (
+                    <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
+                      Model OP
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                    <Cone className="mx-auto mb-1 size-5 text-primary" />
+                    <p className="text-lg font-bold text-mono">{resources.barricades}</p>
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Barricades</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                    <ShieldAlert className="mx-auto mb-1 size-5 text-primary" />
+                    <p className="text-lg font-bold text-mono">{resources.officers}</p>
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Personnel</span>
+                  </div>
+                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                    <Truck className="mx-auto mb-1 size-5 text-primary" />
+                    <p className="text-lg font-bold text-mono">{resources.towTrucks}</p>
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tow Trucks</span>
+                  </div>
                 </div>
               </div>
             </div>
