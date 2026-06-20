@@ -18,7 +18,7 @@ import {
 import { ALL_PLACES, DEFAULT_PLACE } from "@/lib/locations";
 import { generateActionPlan } from "@/lib/actionplan.functions";
 import { fetchHistoricalData, type HistoricalData } from "@/lib/historical.functions";
-import { useEvents, useIncidents, uid, type Incident } from "@/lib/store";
+import { useEvents, useIncidents, uid, type Incident, type IncidentSeverity, type IncidentKind, type PlannedEvent } from "@/lib/store";
 
 // Diversion Engine libraries
 import {
@@ -74,27 +74,41 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // SHARED STATES
   // ==========================================
   const { incidents, addIncident } = useIncidents();
+  const { events, addEvent } = useEvents();
+
+  const isEvent = (ctx: Incident | PlannedEvent | null): ctx is PlannedEvent => {
+    return ctx !== null && "type" in ctx;
+  };
+
   const liveIncidents = useMemo(() => {
     return incidents.filter((i) => i.status !== "Resolved");
   }, [incidents]);
 
+  const activeEvents = useMemo(() => {
+    return events.filter((e) => e.status === "Scheduled" || e.status === "Active");
+  }, [events]);
+
+  const combinedContexts = useMemo(() => {
+    return [...liveIncidents, ...activeEvents].sort((a, b) => b.createdAt - a.createdAt);
+  }, [liveIncidents, activeEvents]);
+
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const selectedIncident = useMemo(() => {
-    return liveIncidents.find((i) => i.id === selectedIncidentId) ?? liveIncidents[0] ?? null;
-  }, [liveIncidents, selectedIncidentId]);
+    return combinedContexts.find((c) => c.id === selectedIncidentId) ?? combinedContexts[0] ?? null;
+  }, [combinedContexts, selectedIncidentId]);
 
   // Set default selection on mount
   useEffect(() => {
-    if (!selectedIncidentId && liveIncidents.length > 0) {
-      setSelectedIncidentId(liveIncidents[0].id);
+    if (!selectedIncidentId && combinedContexts.length > 0) {
+      setSelectedIncidentId(combinedContexts[0].id);
     }
-  }, [liveIncidents, selectedIncidentId]);
+  }, [combinedContexts, selectedIncidentId]);
 
   // ==========================================
   // INCIDENT-DRIVEN AUTOMATION HELPERS
   // ==========================================
-  function getCorridorFromIncident(incident: Incident): string {
-    const loc = incident.location.toLowerCase();
+  function getCorridorFromIncident(ctx: Incident | PlannedEvent): string {
+    const loc = (isEvent(ctx) ? ctx.location?.name || ALL_PLACES.find(p => p.id === ctx.venueId)?.name || ctx.venueId : ctx.location).toLowerCase();
     if (loc.includes("mg road") || loc.includes("cubbon") || loc.includes("richmond") || loc.includes("brigade") || loc.includes("queens")) {
       return "mg_road";
     }
@@ -107,8 +121,12 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     return "mg_road";
   }
 
-  function getClosedRoadsFromIncident(incident: Incident): string[] {
-    const loc = incident.location.toLowerCase();
+  function getClosedRoadsFromIncident(ctx: Incident | PlannedEvent): string[] {
+    if (isEvent(ctx)) {
+      const locName = ctx.location?.name || ALL_PLACES.find(p => p.id === ctx.venueId)?.name || ctx.venueId;
+      return [locName];
+    }
+    const loc = ctx.location.toLowerCase();
     if (loc.includes("mg road") || loc.includes("cubbon") || loc.includes("richmond") || loc.includes("brigade") || loc.includes("queens")) {
       return ["MG Road"];
     }
@@ -118,7 +136,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     if (loc.includes("queens road")) {
       return ["Queens Road"];
     }
-    const parts = incident.location.split(",");
+    const parts = ctx.location.split(",");
     if (parts.length > 0 && parts[0].trim()) {
       return [parts[0].trim()];
     }
@@ -194,14 +212,17 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     setSelectedIncidentId(demo[0].id);
   }
 
-  // Helper to generate a dynamic corridor around the active incident
-  function generateDynamicCorridor(incident: Incident): Corridor {
-    const place = ALL_PLACES.find(p => incident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+  // Helper to generate a dynamic corridor around the active incident/event
+  function generateDynamicCorridor(ctx: Incident | PlannedEvent): Corridor {
+    const locationStr = isEvent(ctx) 
+      ? ctx.location?.name || ALL_PLACES.find(p => p.id === ctx.venueId)?.name || ctx.venueId 
+      : ctx.location;
+    const place = ALL_PLACES.find(p => locationStr.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
     const incLat = place.lat;
     const incLng = place.lng;
 
-    // Use hash of incident ID to vary angles (0, 45, 90, 135 degrees)
-    const idNum = parseInt(incident.id.replace(/\D/g, "")) || 0;
+    // Use hash of ID to vary angles (0, 45, 90, 135 degrees)
+    const idNum = parseInt(ctx.id.replace(/\D/g, "")) || 0;
     const angleDeg = [0, 45, 90, 135][idNum % 4];
     const phi = (angleDeg * Math.PI) / 180;
 
@@ -251,14 +272,18 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       }
     ];
 
+    const baselineClearance = isEvent(ctx) 
+      ? (ctx.attendees >= 25000 ? 60 : ctx.attendees >= 10000 ? 45 : 30)
+      : (ctx.severity === "Critical" ? 60 : ctx.severity === "High" ? 45 : 30);
+
     return {
       id: "incident_corridor",
-      name: `${incident.kind} Corridor`,
+      name: isEvent(ctx) ? `${ctx.title} Corridor` : `${ctx.kind} Corridor`,
       zone: place.area || "Active Incident Zone",
       lat: incLat,
       lng: incLng,
       baseLoad: place.baseLoad || 0.75,
-      baselineClearanceMin: incident.severity === "Critical" ? 60 : incident.severity === "High" ? 45 : 30,
+      baselineClearanceMin: baselineClearance,
       stacks: {
         alpha: generateRoutes("alpha", 1.0),
         beta: generateRoutes("beta", 1.4),
@@ -305,7 +330,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     setClosedRoads(newClosed);
 
     // 7. Auto-derive new model variables
-    const isPlanned = selectedIncident.kind === "VIP Movement";
+    const isPlanned = isEvent(selectedIncident) ? true : selectedIncident.kind === "VIP Movement";
     setIntakeType(isPlanned ? "planned" : "unplanned");
 
     const causeMap: Record<string, string> = {
@@ -317,21 +342,42 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       "VIP Movement": "public_event",
       "Crowd Surge": "public_event"
     };
-    setEventCause(causeMap[selectedIncident.kind] || "others");
-    setPriorityLevel(selectedIncident.severity === "Critical" ? "High" : selectedIncident.severity);
-    setReasonText(selectedIncident.description || "");
 
-    const desc = (selectedIncident.description || "").toLowerCase();
+    if (isEvent(selectedIncident)) {
+      if (selectedIncident.type === "Roadwork / Diversion") {
+        setEventCause("others");
+      } else {
+        setEventCause("public_event");
+      }
+    } else {
+      setEventCause(causeMap[selectedIncident.kind] || "others");
+    }
+
+    let severityLevelLocal: Severity = "Medium";
+    if (isEvent(selectedIncident)) {
+      severityLevelLocal = selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : selectedIncident.attendees >= 5000 ? "Medium" : "Low";
+    } else {
+      severityLevelLocal = selectedIncident.severity;
+    }
+    setPriorityLevel(severityLevelLocal === "Critical" ? "High" : severityLevelLocal);
+    
+    setReasonText(isEvent(selectedIncident) ? `${selectedIncident.title} (${selectedIncident.type})` : selectedIncident.description || "");
+
+    const desc = (isEvent(selectedIncident) ? selectedIncident.title : selectedIncident.description || "").toLowerCase();
     if (desc.includes("bus")) setVehType("bmtc_bus");
     else if (desc.includes("truck") || desc.includes("lcv")) setVehType("lcv");
     else if (desc.includes("car")) setVehType("private_car");
     else setVehType("heavy_vehicle");
 
-    setEstimatedVolume(isPlanned ? 18000 : 8000);
+    if (isEvent(selectedIncident)) {
+      setEstimatedVolume(selectedIncident.attendees);
+    } else {
+      setEstimatedVolume(isPlanned ? 18000 : 8000);
+    }
     setNetworkCapacity(4000);
     setActualClearanceTime(45);
 
-    // Reset predictions when switching incidents
+    // Reset predictions when switching context
     setPrediction(null);
     setScheduled(false);
   }, [selectedIncidentId, selectedIncident]);
@@ -365,41 +411,63 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       };
 
       if (selectedCorridorId === "incident_corridor" && selectedIncident) {
-        const allIncidentsPayload = liveIncidents.map(inc => {
-          const place = ALL_PLACES.find(p => inc.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
-          const causeMap: Record<string, string> = {
-            "Accident": "accident",
-            "Breakdown": "vehicle_breakdown",
-            "Signal Failure": "others",
-            "Waterlogging": "water_logging",
-            "Road Block": "others",
-            "VIP Movement": "public_event",
-            "Crowd Surge": "public_event"
-          };
-          return {
-            id: inc.id,
-            latitude: place.lat,
-            longitude: place.lng,
-            severity: inc.severity,
-            kind: inc.kind,
-            event_type: inc.kind === "VIP Movement" ? "planned" : "unplanned",
-            event_cause: causeMap[inc.kind] || "others",
-            corridor: "Non-corridor",
-            veh_type: "heavy_vehicle",
-            priority: inc.severity === "Critical" ? "High" : inc.severity,
-            reason_breakdown: inc.description || "",
-            created_date: new Date(inc.createdAt).toISOString(),
-            endlatitude: place.lat + 0.005,
-            endlongitude: place.lng + 0.005
-          };
+        const allIncidentsPayload = combinedContexts.map(item => {
+          if (isEvent(item)) {
+            const locName = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId;
+            const place = ALL_PLACES.find(p => locName.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+            const severityLevel = item.attendees >= 35000 ? "Critical" : item.attendees >= 15000 ? "High" : "Medium";
+            return {
+              id: item.id,
+              latitude: place.lat,
+              longitude: place.lng,
+              severity: severityLevel,
+              kind: item.type === "Protest" ? "Crowd Surge" : item.type === "Roadwork / Diversion" ? "Road Block" : "VIP Movement",
+              event_type: "planned",
+              event_cause: item.type === "Roadwork / Diversion" ? "others" : "public_event",
+              corridor: "Non-corridor",
+              veh_type: "heavy_vehicle",
+              priority: item.attendees >= 15000 ? "High" : "Medium",
+              reason_breakdown: item.title,
+              created_date: new Date(item.createdAt).toISOString(),
+              endlatitude: place.lat + 0.005,
+              endlongitude: place.lng + 0.005
+            };
+          } else {
+            const place = ALL_PLACES.find(p => item.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+            const causeMap: Record<string, string> = {
+              "Accident": "accident",
+              "Breakdown": "vehicle_breakdown",
+              "Signal Failure": "others",
+              "Waterlogging": "water_logging",
+              "Road Block": "others",
+              "VIP Movement": "public_event",
+              "Crowd Surge": "public_event"
+            };
+            return {
+              id: item.id,
+              latitude: place.lat,
+              longitude: place.lng,
+              severity: item.severity,
+              kind: item.kind,
+              event_type: item.kind === "VIP Movement" ? "planned" : "unplanned",
+              event_cause: causeMap[item.kind] || "others",
+              corridor: "Non-corridor",
+              veh_type: "heavy_vehicle",
+              priority: item.severity === "Critical" ? "High" : item.severity,
+              reason_breakdown: item.description || "",
+              created_date: new Date(item.createdAt).toISOString(),
+              endlatitude: place.lat + 0.005,
+              endlongitude: place.lng + 0.005
+            };
+          }
         });
 
         const primaryPayload = {
           id: selectedIncident.id,
           latitude: selectedCorridor.lat,
           longitude: selectedCorridor.lng,
-          severity: selectedIncident.severity,
-          kind: selectedIncident.kind,
+          severity: isEvent(selectedIncident) ? (selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : "Medium") : selectedIncident.severity,
+          kind: isEvent(selectedIncident) ? (selectedIncident.type === "Protest" ? "Crowd Surge" : selectedIncident.type === "Roadwork / Diversion" ? "Road Block" : "VIP Movement") : selectedIncident.kind,
           event_type: intakeType,
           event_cause: eventCause,
           corridor: "Non-corridor",
@@ -542,18 +610,27 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const { addEvent } = useEvents();
 
   const predictionInput: PredictionInput | null = selectedIncident
-    ? {
-      type: (selectedIncident.kind === "VIP Movement" ? "VIP Movement" : selectedIncident.kind === "Crowd Surge" ? "Protest" : "Roadwork / Diversion"),
-      venueId: VENUES.find(v => selectedIncident.location.toLowerCase().includes(v.name.toLowerCase()))?.id ?? DEFAULT_PLACE.id,
-      location: VENUES.find(v => selectedIncident.location.toLowerCase().includes(v.name.toLowerCase())) ?? DEFAULT_PLACE,
-      attendees: selectedIncident.severity === "Critical" ? 26000 : selectedIncident.severity === "High" ? 18000 : selectedIncident.severity === "Medium" ? 9000 : 2500,
-      hour: new Date(selectedIncident.createdAt).getHours(),
-      durationHr: selectedIncident.severity === "Critical" ? 4 : selectedIncident.severity === "High" ? 3 : 2,
-      planned: selectedIncident.kind === "VIP Movement",
-    }
+    ? (isEvent(selectedIncident)
+      ? {
+          type: selectedIncident.type,
+          venueId: selectedIncident.venueId,
+          location: selectedIncident.location,
+          attendees: selectedIncident.attendees,
+          hour: selectedIncident.hour,
+          durationHr: selectedIncident.durationHr,
+          planned: selectedIncident.planned,
+        }
+      : {
+          type: (selectedIncident.kind === "VIP Movement" ? "VIP Movement" : selectedIncident.kind === "Crowd Surge" ? "Protest" : "Roadwork / Diversion"),
+          venueId: VENUES.find(v => selectedIncident.location.toLowerCase().includes(v.name.toLowerCase()))?.id ?? DEFAULT_PLACE.id,
+          location: VENUES.find(v => selectedIncident.location.toLowerCase().includes(v.name.toLowerCase())) ?? DEFAULT_PLACE,
+          attendees: selectedIncident.severity === "Critical" ? 26000 : selectedIncident.severity === "High" ? 18000 : selectedIncident.severity === "Medium" ? 9000 : 2500,
+          hour: new Date(selectedIncident.createdAt).getHours(),
+          durationHr: selectedIncident.severity === "Critical" ? 4 : selectedIncident.severity === "High" ? 3 : 2,
+          planned: selectedIncident.kind === "VIP Movement",
+        })
     : null;
 
   function runAnalysis() {
@@ -664,27 +741,37 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   const liveClosedRoads = useMemo(() => {
     if (!autoApplyLiveIncidents) return [];
     const roads: string[] = [];
-    liveIncidents.forEach((inc) => {
-      if (
-        inc.kind === "Road Block" ||
-        inc.kind === "Accident" ||
-        inc.kind === "Waterlogging" ||
-        inc.severity === "Critical" ||
-        inc.severity === "High"
-      ) {
-        const match = ALL_PLACES.find((p) =>
-          inc.location.toLowerCase().includes(p.name.toLowerCase())
-        );
+    combinedContexts.forEach((item) => {
+      if (isEvent(item)) {
+        const locName = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId;
+        const match = ALL_PLACES.find((p) => locName.toLowerCase().includes(p.name.toLowerCase()));
         if (match) {
           roads.push(match.name);
         } else {
-          const parts = inc.location.split(",");
-          roads.push(parts[0].trim());
+          roads.push(locName);
+        }
+      } else {
+        if (
+          item.kind === "Road Block" ||
+          item.kind === "Accident" ||
+          item.kind === "Waterlogging" ||
+          item.severity === "Critical" ||
+          item.severity === "High"
+        ) {
+          const match = ALL_PLACES.find((p) =>
+            item.location.toLowerCase().includes(p.name.toLowerCase())
+          );
+          if (match) {
+            roads.push(match.name);
+          } else {
+            const parts = item.location.split(",");
+            roads.push(parts[0].trim());
+          }
         }
       }
     });
     return Array.from(new Set(roads));
-  }, [liveIncidents, autoApplyLiveIncidents]);
+  }, [combinedContexts, autoApplyLiveIncidents]);
 
   const effectiveClosedRoads = useMemo(() => {
     return Array.from(new Set([...closedRoads, ...liveClosedRoads]));
@@ -858,6 +945,29 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         });
         L.marker([place.lat, place.lng], { icon: customIcon })
           .bindTooltip(`<b>${isSelected ? "ACTIVE CONTEXT: " : ""}Incident: ${inc.kind}</b><br/>Severity: ${inc.severity}<br/>Location: ${inc.location}<br/>Description: ${inc.description}`, { direction: "top" })
+          .addTo(group);
+      }
+    });
+
+    // Draw Planned Events pulsing markers (Shared layer)
+    activeEvents.forEach((ev) => {
+      const locName = ev.location?.name || ALL_PLACES.find(p => p.id === ev.venueId)?.name || ev.venueId;
+      const place = ALL_PLACES.find(p => locName.toLowerCase().includes(p.name.toLowerCase()));
+      if (place) {
+        const isSelected = ev.id === selectedIncidentId;
+        const iconHtml = `<div class="flex items-center justify-center rounded-full border-2 border-primary bg-primary/20 text-primary shadow-glow animate-pulse ${isSelected ? "scale-125" : ""}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 10px var(--primary);">
+          <svg style="width:12px;height:12px;color:var(--primary);" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 2v4M16 2v4M3 10h18M3 4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4Z"/>
+          </svg>
+        </div>`;
+        const customIcon = L.divIcon({
+          className: "",
+          html: iconHtml,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
+        });
+        L.marker([place.lat, place.lng], { icon: customIcon })
+          .bindTooltip(`<b>${isSelected ? "ACTIVE CONTEXT: " : ""}Planned Event: ${ev.title}</b><br/>Type: ${ev.type}<br/>Location: ${locName}<br/>Attendees: ${ev.attendees.toLocaleString()}`, { direction: "top" })
           .addTo(group);
       }
     });
@@ -1086,7 +1196,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // Redraw when variables change
   useEffect(() => {
     drawMapElements();
-  }, [prediction, selectedCorridor, activeStackType, effectiveClosedRoads, bootstrapComplete, osrmGeometries, liveIncidents, selectedIncidentId]);
+  }, [prediction, selectedCorridor, activeStackType, effectiveClosedRoads, bootstrapComplete, osrmGeometries, combinedContexts, selectedIncidentId]);
 
   // ==========================================
   // DIVERSION SANDBOX HANDLERS
@@ -1328,16 +1438,16 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="size-4 text-critical" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Live Field Incidents</h2>
+                  <h2 className="text-sm font-bold uppercase tracking-wide">Active Targets & Events</h2>
                 </div>
                 <span className="rounded-md bg-critical/15 px-2 py-0.5 text-[10px] font-bold text-critical">
-                  {liveIncidents.length} active
+                  {combinedContexts.length} active
                 </span>
               </div>
 
-              {liveIncidents.length === 0 ? (
+              {combinedContexts.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                  <p className="mb-3">No active live incidents. Log events in the Incidents tab.</p>
+                  <p className="mb-3">No active live incidents or planned events. Log them in the Planner or Incidents tab.</p>
                   <button
                     onClick={loadDemoIncidents}
                     className="mx-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-110"
@@ -1347,30 +1457,62 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                 </div>
               ) : (
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {liveIncidents.map((inc) => {
-                    const isSelected = inc.id === selectedIncidentId;
+                  {combinedContexts.map((item) => {
+                    const isSelected = item.id === selectedIncidentId;
+                    const isEv = isEvent(item);
+                    
+                    let title = "";
+                    let subtitle = "";
+                    let severityStr = "";
+                    let severityClass = "";
+                    let reporterOrType = "";
+
+                    if (isEv) {
+                      title = item.title;
+                      subtitle = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId;
+                      const severity = item.attendees >= 35000 ? "Critical" : item.attendees >= 15000 ? "High" : item.attendees >= 5000 ? "Medium" : "Low";
+                      severityStr = severity;
+                      severityClass = severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                        severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                        severity === "Medium" ? "border-info bg-info/10 text-info" :
+                        "border-success bg-success/10 text-success";
+                      reporterOrType = `Planned · ${item.type}`;
+                    } else {
+                      title = item.kind;
+                      subtitle = item.location;
+                      severityStr = item.severity;
+                      severityClass = item.severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                        item.severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                        item.severity === "Medium" ? "border-info bg-info/10 text-info" :
+                        "border-success bg-success/10 text-success";
+                      reporterOrType = `Reporter: ${item.reporter}`;
+                    }
+
                     return (
                       <div
-                        key={inc.id}
-                        onClick={() => setSelectedIncidentId(inc.id)}
+                        key={item.id}
+                        onClick={() => setSelectedIncidentId(item.id)}
                         className={`group rounded-xl border p-2.5 text-xs transition cursor-pointer ${isSelected
                             ? "border-primary bg-primary/10 text-foreground"
                             : "border-border bg-input/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
                           }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-bold">{inc.kind}</span>
-                          <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${inc.severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
-                              inc.severity === "High" ? "border-warning bg-warning/10 text-warning" :
-                                inc.severity === "Medium" ? "border-info bg-info/10 text-info" :
-                                  "border-success bg-success/10 text-success"
-                            }`}>
-                            {inc.severity}
+                          <span className="font-bold flex items-center gap-1.5">
+                            {isEv ? (
+                              <CalendarPlus className="size-3.5 text-primary" />
+                            ) : (
+                              <AlertTriangle className="size-3.5 text-critical" />
+                            )}
+                            {title}
+                          </span>
+                          <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${severityClass}`}>
+                            {severityStr}
                           </span>
                         </div>
-                        <p className="text-[10px] mt-0.5 leading-normal">{inc.location}</p>
+                        <p className="text-[10px] mt-0.5 leading-normal">{subtitle}</p>
                         <div className="mt-2 flex items-center justify-between text-[9px]">
-                          <span>Reporter: {inc.reporter}</span>
+                          <span>{reporterOrType}</span>
                           {isSelected ? (
                             <span className="text-primary font-bold flex items-center gap-0.5">
                               <span className="size-1.5 rounded-full bg-primary animate-pulse" /> Simulating
