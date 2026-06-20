@@ -1,4 +1,4 @@
-I have received your request for a summary of the dataset, the model's predictive targets, and the architecture of the ideal frontend. Based on the "Sandbox Model Testing Code" currently active in the Canvas and the overarching project goals, here is the technical breakdown:
+A summary of the dataset, the model's predictive targets, and the architecture of the ideal frontend. 
 
 ### 1. Dataset Architecture & Feature Engineering
 
@@ -20,6 +20,7 @@ The Machine Learning pipeline (loaded as `dual_intake_model.pkl` in the Canvas) 
 ### 3. The Ideal Frontend (Live Pilot MVP)
 
 To translate this Lean Architecture into an actionable command center, the ideal frontend is a reactive, client-side application (e.g., Vite + React) communicating with a lightweight API (FastAPI) that executes the logic seen in the Canvas.
+In our frontend, this is what we aim to have the diversions feature doing
 
 * **State Management:** It will feature dynamic input forms that conditionally render fields based on the event intake type (e.g., displaying $V_{est}$ and $C_{network}$ for Planned events, or Priority Weights for Unplanned events).
 * **Telemetry Dashboard:** It must prominently display the inferred computational outputs in real-time:
