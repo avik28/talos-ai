@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+osmnx
+networkx
+pandas
+shapely
+requests
+scikit-learn
+scipy

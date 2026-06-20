@@ -1,0 +1,51 @@
+Architecture Document: Threshold-Triggered Route Rotation
+Alternative approach focusing on extreme computational efficiency and explicit logic.
+1. The Core Concept: The "Three Strikes" Routing Stack
+Instead of running expensive microsimulations to predict cascading failures, we rely on historical hierarchy and strict rule-based penalization to handle both Unplanned (accidents, breakdowns) and Planned (rallies, sports matches) events within a unified engine.
+Every corridor/zone intersection has a predefined Route Stack (a list of diversion plans ranked by historical efficiency).
+If the Primary route fails a set number of times (the threshold), it receives a penalty, is temporarily demoted, and the Secondary route becomes the new default.
+Primary: Route B-D-E-A (Default)
+Secondary: Route B-D-E-C (Fallback 1)
+Tertiary: Route B-D-E-P (Fallback 2)
+2. Phase 0: Historical Bootstrapping (Skipping Live Trial-and-Error)
+To prevent subjecting the public to a painful learning curve on Day 1, the system is "pre-aged" using the existing incident dataset (e.g., the 8,100+ historical records).
+Calculate Baselines: The system parses historical data to establish a baseline clearance time () for every zone, corridor, and event_cause.
+Historical Backtesting: The engine processes the historical dataset chronologically. Let  be the actual historical clearance time. If , the engine issues a "Ghost Strike" to that junction's default routing protocol.
+Day 1 Readiness: The system goes live with a highly mature, pre-sorted Route Stack, bypassing the "trial and error" phase entirely.
+3. Resolving Pain Point 1: The Dual-Intake Impact Engine
+To provide exact foresight, the system uses a bifurcated approach to calculate the Dynamic Impact Score () depending on whether the event is a surprise or scheduled.
+A. Unplanned Events (Reactive)
+For accidents and breakdowns,  relies on historical averages and severity flags.
+Formula:
+
+Where  is a weight based on the priority flag (e.g., High = 0.3), and  is the historical probability of a road closure.
+B. Planned Events (Proactive Simple ML)
+For rallies or sports events, the date, location, and audience are known. We introduce an Estimated Volume () variable.
+Formula:
+
+Where  is the known hourly capacity of the surrounding grid, and  is the scheduled length of the event.
+The Output: 72 hours before a festival, the system predicts: "Expected localized congestion duration is 4.5 hours with a peak volume exceeding network capacity by 18%."
+4. Resolving Pain Point 2: Algorithmic Resource Deployment
+The active route in the stack dictates a rigid, mathematical resource drop based on the physical geometry of the diversion and the Impact Score.
+The Resource Mapping Matrix:
+Barricades: Let  be the number of cross-streets on the diversion route. Required Barricades = .
+Personnel (Unplanned): Let  be the distance in kilometers. Required Officers =  + Base Incident Requirement.
+Personnel (Planned): Scales directly with the audience size. Required Officers = Base Route Requirement + .
+5. Resolving Pain Point 3: The Evolutionary Learning Loop
+A. The Failure Metric (The Strike)
+A route receives "1 Strike" if the live execution results in , OR if a secondary incident is logged on the active diversion route.
+B. The Threshold Trigger & Rotation
+If a route hits the 3-Strike Threshold within a rolling 14-day window:
+Demotion: The route is moved to the "Penalty Box" (demoted to Tertiary).
+Promotion: The Secondary route is promoted to Primary.
+Resource Update: The system recalculates the Resource Matrix for the new Primary route.
+C. The Rehabilitation Protocol (Safe Re-entry)
+After a 30-day cooldown, a demoted route enters Rehabilitation Mode.
+The system will automatically test the penalized route only if a matching event occurs during historically low-volume hours (e.g., 11:00 PM - 4:00 AM).
+If it succeeds without strikes, it slowly regains its rank.
+6. Contextual Sub-Stacks (Preventing Cross-Contamination)
+To prevent a massive planned event from penalizing a route used for daily commuting emergencies, stacks are strictly siloed based on context and scale:
+Stack Alpha (Unplanned / Clear Weather / Off-Peak)
+Stack Beta (Unplanned / Rain / Peak Hours)
+Stack Gamma (Planned / High-Volume > 10k attendees)
+Strikes are strictly isolated to the active context stack. If a diversion route fails during a 50,000-person rally, it receives a strike in Stack Gamma, but remains the trusted Primary route in Stack Alpha for a random Tuesday fender-bender.
