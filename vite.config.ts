@@ -9,7 +9,7 @@ import { resolve } from "path";
 
 export default defineConfig({
   tanstackStart: {
-    srcDirectory: "frontend/src",
+    srcDirectory: "src",
     // Redirect TanStack Start's bundled server entry to frontend/src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
@@ -17,7 +17,7 @@ export default defineConfig({
   vite: {
     resolve: {
       alias: {
-        "@": resolve(process.cwd(), "./frontend/src"),
+        "@": resolve(process.cwd(), "./src"),
       },
     },
   },
