@@ -168,22 +168,22 @@
   }
 
   @keyframes pulse-ring {
+
     0%,
     100% {
       box-shadow: 0 0 0 0 var(--ring-glow);
     }
+
     50% {
       box-shadow: 0 0 0 8px transparent;
     }
   }
 
   .scan-line {
-    background: linear-gradient(
-      180deg,
-      transparent,
-      color-mix(in oklab, var(--primary) 18%, transparent),
-      transparent
-    );
+    background: linear-gradient(180deg,
+        transparent,
+        color-mix(in oklab, var(--primary) 18%, transparent),
+        transparent);
   }
 }
 
@@ -192,17 +192,20 @@
   background: oklch(0.15 0.025 256) !important;
   font-family: var(--font-mono);
 }
+
 .leaflet-tile {
-  filter: brightness(0.6) invert(1) contrast(0.85) hue-rotate(190deg) saturate(0.45)
-    brightness(0.95);
+  filter: brightness(0.6) invert(1) contrast(0.85) hue-rotate(190deg) saturate(0.45) brightness(0.95);
 }
+
 .leaflet-control-attribution {
   background: rgba(20, 24, 38, 0.7) !important;
   color: #8a92a8 !important;
 }
+
 .leaflet-control-attribution a {
   color: #b6bdd0 !important;
 }
+
 .leaflet-bar a {
   background: #232a3d !important;
   color: #e7ebf5 !important;

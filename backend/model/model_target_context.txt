@@ -1,0 +1,32 @@
+A summary of the dataset, the model's predictive targets, and the architecture of the ideal frontend. 
+
+### 1. Dataset Architecture & Feature Engineering
+
+The model is trained on a foundational dataset of roughly 8,100 historical traffic incidents. The raw schema includes administrative identifiers, spatial coordinates, timestamps, and free-text descriptions, which are parsed and engineered into high-signal predictive features:
+
+* **Temporal Features:** Extracted from timestamps to form `hour_of_day`, `day_of_week`, and a custom binary `is_peak_hour` flag.
+* **Spatial Features:** Raw coordinates (`latitude`/`longitude` to `endlatitude`/`endlongitude`) are transformed using the Haversine formula into `impact_distance_km`, distinguishing between point-impacts (e.g., a stalled car) and span-impacts (e.g., a flooded street).
+* **Categorical Pillars:** Core inputs include `event_type` (Planned vs. Unplanned), `event_cause`, `corridor` classification, `veh_type`, `priority`, and geographic `zone`.
+* **Historical Baselines:** The dataset is aggregated to bootstrap a `t_base` feature, representing the historical median clearance time for a specific zone and event cause.
+
+### 2. Algorithmic Targets (The Dual-Intake Engine)
+
+The Machine Learning pipeline (loaded as `dual_intake_model.pkl` in the Canvas) processes these features to achieve specific operational targets:
+
+* **Primary Target (Regression):** The model predicts the expected resolution time in minutes, mapped as the **Dynamic Impact Score ($S_{impact}$)**.
+* **The Evolutionary Threshold (Phase 3 Target):** As demonstrated in the Canvas code, the system calculates a strict failure threshold defined as $S_{impact} \times 1.25$. If the actual clearance time exceeds this algorithmic threshold, the system issues a "Strike".
+* **Route Rotation (The Output Goal):** The ultimate objective of these targets is autonomous network optimization. Accumulating 3 strikes demotes an active diversion route to a "Penalty Box" (Tertiary) and promotes secondary routes, mathematically weeding out inefficient traffic plans.
+
+### 3. The Ideal Frontend (Live Pilot MVP)
+
+To translate this Lean Architecture into an actionable command center, the ideal frontend is a reactive, client-side application (e.g., Vite + React) communicating with a lightweight API (FastAPI) that executes the logic seen in the Canvas.
+In our frontend, this is what we aim to have the diversions feature doing
+
+* **State Management:** It will feature dynamic input forms that conditionally render fields based on the event intake type (e.g., displaying $V_{est}$ and $C_{network}$ for Planned events, or Priority Weights for Unplanned events).
+* **Telemetry Dashboard:** It must prominently display the inferred computational outputs in real-time:
+1. The computed $S_{impact}$ (in minutes).
+2. The critical Demotion Strike Threshold.
+3. The Resource Dispatch Matrix (algorithmic calculation of required personnel and barricades based on spatial geometry).
+
+
+* **Route Stack Visualization:** It should visually represent the active "In-Memory Route Stack" (Primary, Secondary, Tertiary), dynamically shifting elements down the hierarchy when the simulated $S_{impact}$ threshold is breached and strikes are issued.
