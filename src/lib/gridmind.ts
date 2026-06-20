@@ -72,13 +72,13 @@ export const VENUES: Venue[] = [
 ];
 
 export const STATIONS: Station[] = [
-  { id: "cubbon", name: "Cubbon Park", lat: 12.9762, lng: 77.5929, officersAvailable: 14, responseMin: 6, successRate: 94, efficiency: 90 },
-  { id: "halasuru", name: "Halasuru Gate", lat: 12.9784, lng: 77.6101, officersAvailable: 11, responseMin: 7, successRate: 91, efficiency: 87 },
-  { id: "sadashiv", name: "Sadashivanagar", lat: 13.0064, lng: 77.5806, officersAvailable: 9, responseMin: 8, successRate: 92, efficiency: 88 },
-  { id: "yeshwanth", name: "Yeshwanthpura", lat: 13.0234, lng: 77.5512, officersAvailable: 12, responseMin: 9, successRate: 88, efficiency: 84 },
-  { id: "wilson", name: "Wilson Garden", lat: 12.9472, lng: 77.5986, officersAvailable: 8, responseMin: 7, successRate: 90, efficiency: 86 },
-  { id: "hsr", name: "HSR Layout", lat: 12.9116, lng: 77.6412, officersAvailable: 10, responseMin: 11, successRate: 89, efficiency: 85 },
-  { id: "byatara", name: "Byatarayanapura", lat: 13.0608, lng: 77.5946, officersAvailable: 7, responseMin: 10, successRate: 87, efficiency: 83 },
+  { id: "cubbon", name: "Cubbon Park", lat: 12.9762, lng: 77.5929, officersAvailable: 48, responseMin: 6, successRate: 94, efficiency: 90 },
+  { id: "halasuru", name: "Halasuru Gate", lat: 12.9784, lng: 77.6101, officersAvailable: 38, responseMin: 7, successRate: 91, efficiency: 87 },
+  { id: "sadashiv", name: "Sadashivanagar", lat: 13.0064, lng: 77.5806, officersAvailable: 32, responseMin: 8, successRate: 92, efficiency: 88 },
+  { id: "yeshwanth", name: "Yeshwanthpura", lat: 13.0234, lng: 77.5512, officersAvailable: 42, responseMin: 9, successRate: 88, efficiency: 84 },
+  { id: "wilson", name: "Wilson Garden", lat: 12.9472, lng: 77.5986, officersAvailable: 28, responseMin: 7, successRate: 90, efficiency: 86 },
+  { id: "hsr", name: "HSR Layout", lat: 12.9116, lng: 77.6412, officersAvailable: 35, responseMin: 11, successRate: 89, efficiency: 85 },
+  { id: "byatara", name: "Byatarayanapura", lat: 13.0608, lng: 77.5946, officersAvailable: 25, responseMin: 10, successRate: 87, efficiency: 83 },
 ];
 
 // Encode an event into a feature vector for similarity search.

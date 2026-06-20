@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   ShieldAlert,
   Truck,
@@ -22,6 +22,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { computeEscalation } from "@/lib/escalation";
 import { useIncidents, useEvents } from "@/lib/store";
 import { STATIONS, predict, fmtHour } from "@/lib/gridmind";
+import { ALL_PLACES, DEFAULT_PLACE } from "@/lib/locations";
 
 export const Route = createFileRoute("/deployment")({
   head: () => ({
@@ -66,10 +67,71 @@ function DeploymentPage() {
     toast.success(`Dispatching ${order.officers} officers to ${order.incidentLabel} from ${stationNames}.`);
   }
 
-  const stationAssignments = useMemo(() => buildDeploymentPlan(scoredIncidents, STATIONS), [scoredIncidents]);
+  const [backendAssignments, setBackendAssignments] = useState<any>(null);
 
-  const requiredOfficers = stationAssignments.incidentAllocations.reduce((sum, i) => sum + i.requested, 0);
-  const assignedOfficers = stationAssignments.incidentAllocations.reduce((sum, i) => sum + i.assigned, 0);
+  useEffect(() => {
+    if (scoredIncidents.length === 0) {
+      setBackendAssignments(null);
+      return;
+    }
+
+    let active = true;
+    const fetchPlan = async () => {
+      try {
+        const payload = {
+          incidents: scoredIncidents.map(item => {
+            const locLower = item.incident.location.toLowerCase();
+            const place = ALL_PLACES.find(p => locLower.includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+            return {
+              id: item.incident.id,
+              kind: item.incident.kind,
+              severity: item.incident.severity,
+              location: item.incident.location,
+              description: item.incident.description,
+              status: item.incident.status,
+              createdAt: item.incident.createdAt,
+              score: item.esc.score,
+              requested_officers: item.esc.recommend.officers,
+              lat: place.lat,
+              lng: place.lng
+            };
+          }),
+          stations: STATIONS,
+          variables: {
+            rain: incidents.some(i => i.kind === "Waterlogging"),
+            peakHour: (() => {
+              const hr = new Date().getHours();
+              return (hr >= 8 && hr <= 11) || (hr >= 17 && hr <= 21);
+            })()
+          }
+        };
+
+        const res = await fetch("http://localhost:8000/api/dispatch-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("Failed to fetch dispatch plan");
+        const data = await res.json();
+        if (active) {
+          setBackendAssignments(data);
+        }
+      } catch (err) {
+        console.error("Backend dispatch plan fetch failed, falling back to local heuristic solver:", err);
+      }
+    };
+
+    fetchPlan();
+    return () => {
+      active = false;
+    };
+  }, [scoredIncidents, incidents]);
+
+  const localPlan = useMemo(() => buildDeploymentPlan(scoredIncidents, STATIONS), [scoredIncidents]);
+  const stationAssignments = backendAssignments ?? localPlan;
+
+  const requiredOfficers = stationAssignments.incidentAllocations.reduce((sum: number, i: any) => sum + i.requested, 0);
+  const assignedOfficers = stationAssignments.incidentAllocations.reduce((sum: number, i: any) => sum + i.assigned, 0);
   const arrivedOfficers = Math.min(assignedOfficers, Math.max(0, Math.round(assignedOfficers * 0.54)));
   const enRouteOfficers = assignedOfficers - arrivedOfficers;
   const coverageScore = requiredOfficers === 0 ? 100 : Math.max(0, Math.min(100, Math.round((assignedOfficers / requiredOfficers) * 100)));

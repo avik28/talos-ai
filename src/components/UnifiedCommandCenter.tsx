@@ -303,25 +303,38 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     setCorridorName("incident_corridor");
 
     // 2. Auto-derive rain weather
-    const isRain = selectedIncident.kind === "Waterlogging";
+    const isRain = !isEvent(selectedIncident) && selectedIncident.kind === "Waterlogging";
     setRain(isRain);
 
     // 3. Auto-derive peak hour
     const hour = new Date(selectedIncident.createdAt).getHours();
     const isPeakTime = (hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 21);
-    const isHighSev = selectedIncident.severity === "Critical" || selectedIncident.severity === "High";
+    const isHighSev = isEvent(selectedIncident)
+      ? (selectedIncident.attendees >= 15000)
+      : (selectedIncident.severity === "Critical" || selectedIncident.severity === "High");
     setPeakHour(isPeakTime || isHighSev);
 
     // 4. Auto-derive deployed officers count
     const officerMap = { Low: 2, Medium: 5, High: 10, Critical: 15 };
-    setDeployedOfficers(officerMap[selectedIncident.severity] || 5);
+    const derivedSevForOfficers = isEvent(selectedIncident)
+      ? (selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : selectedIncident.attendees >= 5000 ? "Medium" : "Low")
+      : selectedIncident.severity;
+    setDeployedOfficers(officerMap[derivedSevForOfficers] || 5);
 
     // 5. Auto-derive stack type
     let stack: "alpha" | "beta" | "gamma" = "alpha";
-    if (selectedIncident.kind === "VIP Movement" || selectedIncident.kind === "Crowd Surge") {
-      stack = "gamma";
-    } else if (selectedIncident.kind === "Waterlogging" || selectedIncident.kind === "Signal Failure" || isHighSev) {
-      stack = "beta";
+    if (isEvent(selectedIncident)) {
+      if (selectedIncident.type === "VIP Movement" || selectedIncident.type === "Political Rally" || selectedIncident.type === "Protest" || selectedIncident.type === "Strike / Bandh") {
+        stack = "gamma";
+      } else {
+        stack = "beta";
+      }
+    } else {
+      if (selectedIncident.kind === "VIP Movement" || selectedIncident.kind === "Crowd Surge") {
+        stack = "gamma";
+      } else if (selectedIncident.kind === "Waterlogging" || selectedIncident.kind === "Signal Failure" || isHighSev) {
+        stack = "beta";
+      }
     }
     setActiveStackType(stack);
 
@@ -353,11 +366,11 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       setEventCause(causeMap[selectedIncident.kind] || "others");
     }
 
-    let severityLevelLocal: Severity = "Medium";
+    let severityLevelLocal: Severity = "Moderate";
     if (isEvent(selectedIncident)) {
-      severityLevelLocal = selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : selectedIncident.attendees >= 5000 ? "Medium" : "Low";
+      severityLevelLocal = selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : selectedIncident.attendees >= 5000 ? "Moderate" : "Low";
     } else {
-      severityLevelLocal = selectedIncident.severity;
+      severityLevelLocal = selectedIncident.severity === "Medium" ? "Moderate" : selectedIncident.severity;
     }
     setPriorityLevel(severityLevelLocal === "Critical" ? "High" : severityLevelLocal);
     
@@ -421,7 +434,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
               latitude: place.lat,
               longitude: place.lng,
               severity: severityLevel,
-              kind: item.type === "Protest" ? "Crowd Surge" : item.type === "Roadwork / Diversion" ? "Road Block" : "VIP Movement",
+              kind: item.type === "Protest" ? "Crowd Surge" : item.type === "Roadwork / Diversion" ? "Road Block" : item.type,
               event_type: "planned",
               event_cause: item.type === "Roadwork / Diversion" ? "others" : "public_event",
               corridor: "Non-corridor",
@@ -467,7 +480,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
           latitude: selectedCorridor.lat,
           longitude: selectedCorridor.lng,
           severity: isEvent(selectedIncident) ? (selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : "Medium") : selectedIncident.severity,
-          kind: isEvent(selectedIncident) ? (selectedIncident.type === "Protest" ? "Crowd Surge" : selectedIncident.type === "Roadwork / Diversion" ? "Road Block" : "VIP Movement") : selectedIncident.kind,
+          kind: isEvent(selectedIncident) ? (selectedIncident.type === "Protest" ? "Crowd Surge" : selectedIncident.type === "Roadwork / Diversion" ? "Road Block" : selectedIncident.type) : selectedIncident.kind,
           event_type: intakeType,
           event_cause: eventCause,
           corridor: "Non-corridor",
@@ -646,6 +659,9 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
   function scheduleEvent() {
     if (!selectedIncident || !predictionInput) return;
+    const locName = isEvent(selectedIncident)
+      ? (selectedIncident.location?.name || ALL_PLACES.find(p => p.id === selectedIncident.venueId)?.name || selectedIncident.venueId)
+      : selectedIncident.location;
     addEvent({
       id: uid("EVT"),
       type: predictionInput.type,
@@ -656,7 +672,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       durationHr: predictionInput.durationHr,
       planned: predictionInput.planned,
       date: new Date().toISOString().slice(0, 10),
-      title: `Incident response · ${selectedIncident.location}`,
+      title: `Incident response · ${locName}`,
       status: "Scheduled",
       createdAt: Date.now(),
     });
@@ -679,7 +695,11 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // ==========================================
   // CLI & SIMULATION OVERLAYS
   // ==========================================
-  const [commandInput, setCommandInput] = useState<string>(selectedIncident ? `Deploy officers for ${selectedIncident.kind}` : "");
+  const [commandInput, setCommandInput] = useState<string>(
+    selectedIncident
+      ? `Deploy officers for ${isEvent(selectedIncident) ? selectedIncident.title : selectedIncident.kind}`
+      : ""
+  );
   const [consoleMessages, setConsoleMessages] = useState<Array<{ sender: "user" | "system", text: string }>>([
     { sender: "system", text: "GridMind Diversion CLI v1.0. Ready. Type queries to override simulation (e.g. 'Deploy 12 officers')." }
   ]);
@@ -688,7 +708,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // Sync default prompt command with selected incident
   useEffect(() => {
     if (selectedIncident) {
-      setCommandInput(`Deploy officers for ${selectedIncident.kind}`);
+      setCommandInput(`Deploy officers for ${isEvent(selectedIncident) ? selectedIncident.title : selectedIncident.kind}`);
     }
   }, [selectedIncidentId, selectedIncident]);
 
@@ -711,20 +731,24 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     const activeStack = selectedCorridor.stacks[activeStackType];
     if (!activeStack || activeStack.length === 0) return { barricades: 0, officers: 0, towTrucks: 0 };
     const primaryRoute = activeStack[0];
-    const severity = selectedIncident ? selectedIncident.severity : "Medium";
+    const severity = selectedIncident 
+      ? (isEvent(selectedIncident)
+        ? (selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : "Medium")
+        : selectedIncident.severity)
+      : "Medium";
 
     const engineSeverity: "Low" | "Medium" | "High" | "Critical" =
       severity === "Low" ? "Low" :
         severity === "Medium" ? "Medium" :
           severity === "High" ? "High" : "Critical";
 
-    const planned = selectedIncident ? (selectedIncident.kind === "VIP Movement") : false;
+    const planned = selectedIncident ? (isEvent(selectedIncident) ? true : selectedIncident.kind === "VIP Movement") : false;
 
     const impactScore = calculateDynamicImpactScore({
       planned,
       severity: engineSeverity,
       historicalClosureProbability: 0.25,
-      estimatedVolume: planned ? 18000 : 8000,
+      estimatedVolume: planned ? (isEvent(selectedIncident) ? selectedIncident.attendees : 18000) : 8000,
       hourlyCapacity: 4000,
       durationHr: planned ? 4 : 2,
     });
@@ -805,10 +829,13 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
           // Always ensure the selected incident itself is blocked in the routing engine
           if (selectedIncident) {
-            const place = ALL_PLACES.find(p => selectedIncident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+            const locName = isEvent(selectedIncident)
+              ? (selectedIncident.location?.name || ALL_PLACES.find(p => p.id === selectedIncident.venueId)?.name || selectedIncident.venueId)
+              : selectedIncident.location;
+            const place = ALL_PLACES.find(p => locName.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
             if (!mappedClosedRoads.some(r => r.lat === place.lat && r.lng === place.lng)) {
               mappedClosedRoads.push({
-                name: selectedIncident.kind,
+                name: isEvent(selectedIncident) ? selectedIncident.title : selectedIncident.kind,
                 lat: place.lat,
                 lng: place.lng
               });
@@ -1221,10 +1248,13 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
 
       // Always ensure the selected incident itself is blocked in the routing engine
       if (selectedIncident) {
-        const place = ALL_PLACES.find(p => selectedIncident.location.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+        const locName = isEvent(selectedIncident)
+          ? (selectedIncident.location?.name || ALL_PLACES.find(p => p.id === selectedIncident.venueId)?.name || selectedIncident.venueId)
+          : selectedIncident.location;
+        const place = ALL_PLACES.find(p => locName.toLowerCase().includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
         if (!mappedClosedRoads.some(r => r.lat === place.lat && r.lng === place.lng)) {
           mappedClosedRoads.push({
-            name: selectedIncident.kind,
+            name: isEvent(selectedIncident) ? selectedIncident.title : selectedIncident.kind,
             lat: place.lat,
             lng: place.lng
           });
@@ -1352,19 +1382,32 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       const dynCorridor = generateDynamicCorridor(selectedIncident);
       setCorridors([dynCorridor]);
       setSelectedCorridorId("incident_corridor");
-      const isRain = selectedIncident.kind === "Waterlogging";
+      const isRain = !isEvent(selectedIncident) && selectedIncident.kind === "Waterlogging";
       setRain(isRain);
       const hour = new Date(selectedIncident.createdAt).getHours();
       const isPeakTime = (hour >= 8 && hour <= 11) || (hour >= 17 && hour <= 21);
-      const isHighSev = selectedIncident.severity === "Critical" || selectedIncident.severity === "High";
+      const isHighSev = isEvent(selectedIncident)
+        ? (selectedIncident.attendees >= 15000)
+        : (selectedIncident.severity === "Critical" || selectedIncident.severity === "High");
       setPeakHour(isPeakTime || isHighSev);
       const officerMap = { Low: 2, Medium: 5, High: 10, Critical: 15 };
-      setDeployedOfficers(officerMap[selectedIncident.severity] || 5);
+      const derivedSevForOfficers = isEvent(selectedIncident)
+        ? (selectedIncident.attendees >= 35000 ? "Critical" : selectedIncident.attendees >= 15000 ? "High" : selectedIncident.attendees >= 5000 ? "Medium" : "Low")
+        : selectedIncident.severity;
+      setDeployedOfficers(officerMap[derivedSevForOfficers] || 5);
       let stack: "alpha" | "beta" | "gamma" = "alpha";
-      if (selectedIncident.kind === "VIP Movement" || selectedIncident.kind === "Crowd Surge") {
-        stack = "gamma";
-      } else if (selectedIncident.kind === "Waterlogging" || selectedIncident.kind === "Signal Failure" || isHighSev) {
-        stack = "beta";
+      if (isEvent(selectedIncident)) {
+        if (selectedIncident.type === "VIP Movement" || selectedIncident.type === "Political Rally" || selectedIncident.type === "Protest" || selectedIncident.type === "Strike / Bandh") {
+          stack = "gamma";
+        } else {
+          stack = "beta";
+        }
+      } else {
+        if (selectedIncident.kind === "VIP Movement" || selectedIncident.kind === "Crowd Surge") {
+          stack = "gamma";
+        } else if (selectedIncident.kind === "Waterlogging" || selectedIncident.kind === "Signal Failure" || isHighSev) {
+          stack = "beta";
+        }
       }
       setActiveStackType(stack);
     } else {

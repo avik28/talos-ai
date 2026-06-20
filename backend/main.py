@@ -821,6 +821,333 @@ async def generate_diversions(req: GenerateDiversionsRequest):
         "warnings": warnings_list,
         "inferences_run": inferences_run
     }
+
+
+class IncidentItem(BaseModel):
+    id: str
+    kind: str
+    severity: str
+    location: str
+    description: str
+    status: str
+    createdAt: float
+    score: float
+    requested_officers: int
+    lat: float
+    lng: float
+
+class StationItem(BaseModel):
+    id: str
+    name: str
+    lat: float
+    lng: float
+    officersAvailable: int
+    responseMin: int
+    successRate: int
+    efficiency: int
+
+class DispatchPlanVariables(BaseModel):
+    rain: bool
+    peakHour: bool
+
+class DispatchPlanRequest(BaseModel):
+    incidents: list[IncidentItem]
+    stations: list[StationItem]
+    variables: DispatchPlanVariables
+
+
+def build_kinematic_weights(graph, rain: bool, peak_hour: bool, incident_coords: list) -> dict:
+    overrides = {}
+    for u, v, k, data in graph.edges(keys=True, data=True):
+        length = data.get("length", 1.0)
+        maxspeed = data.get("maxspeed", 40.0)
+        
+        # Maxspeed parsing
+        v_free = 40.0
+        if isinstance(maxspeed, list):
+            maxspeed = maxspeed[0]
+        if isinstance(maxspeed, str):
+            try:
+                m = re.search(r"\d+", maxspeed)
+                if m:
+                    v_free = float(m.group())
+            except Exception:
+                v_free = 40.0
+        elif isinstance(maxspeed, (int, float)):
+            v_free = float(maxspeed)
+            
+        highway = data.get("highway", "")
+        if isinstance(highway, list):
+            highway = highway[0] if highway else ""
+            
+        c_base = 0.10
+        if highway in ["motorway", "trunk"]:
+            c_base = 0.30
+        elif highway in ["primary"]:
+            c_base = 0.25
+        elif highway in ["secondary"]:
+            c_base = 0.20
+        elif highway in ["tertiary"]:
+            c_base = 0.15
+            
+        c_weather = 0.20 if rain else 0.0
+        c_time = 0.30 if peak_hour else 0.0
+        
+        c_prox = 0.0
+        if incident_coords:
+            node_lat = graph.nodes[u].get("y", 12.9716)
+            node_lng = graph.nodes[u].get("x", 77.5946)
+            for lat, lng in incident_coords:
+                dist = haversine_distance(node_lat, node_lng, lat, lng)
+                if dist <= 1.5:
+                    c_prox += 0.40 * (1.5 - dist) / 1.5
+                    
+        c_level = min(0.99, max(0.0, c_base + c_weather + c_time + c_prox))
+        v_effective = max(5.0, v_free * (1.0 - c_level))
+        
+        # travel time in minutes: (length / 1000) / v_effective * 60 = length * 0.06 / v_effective
+        t_edge = (length * 0.06) / v_effective
+        overrides[(u, v, k)] = t_edge
+        
+    return overrides
+
+
+def make_kinematic_weight_fn(overrides: dict):
+    def weight_fn(u, v, edge_dict):
+        best = float("inf")
+        for k, data in edge_dict.items():
+            w = overrides.get((u, v, k), None)
+            if w is None:
+                w = data.get("length", 1.0) * 0.0015
+            if w < best:
+                best = w
+        return best
+    return weight_fn
+
+
+@app.post("/api/dispatch-plan")
+async def get_dispatch_plan(req: DispatchPlanRequest):
+    global G
+    reload_graph_if_changed()
+    if G is None:
+        raise HTTPException(status_code=500, detail="Graph not initialized")
+
+    rain = req.variables.rain
+    peak_hour = req.variables.peakHour
+    incident_coords = [(inc.lat, inc.lng) for inc in req.incidents]
+    
+    # 1. Pre-calculate travel times for all stations to all incidents
+    kinematic_weights = build_kinematic_weights(G, rain, peak_hour, incident_coords)
+    weight_fn = make_kinematic_weight_fn(kinematic_weights)
+    
+    # Map station name to details and track available officer counts dynamically
+    available_officers = {s.name: s.officersAvailable for s in req.stations}
+    station_nodes = {}
+    for s in req.stations:
+        try:
+            station_nodes[s.name] = ox.nearest_nodes(G, X=s.lng, Y=s.lat)
+        except Exception:
+            station_nodes[s.name] = None
+            
+    # Pre-build response structures
+    station_allocs_dict = {
+        s.name: {
+            "station": s.name,
+            "available": s.officersAvailable,
+            "eta": s.responseMin,
+            "allocations": []
+        }
+        for s in req.stations
+    }
+    
+    incident_allocs = []
+    deployment_orders = []
+    
+    # Sort incidents by score descending (highest priority gets allocated first)
+    sorted_incidents = sorted(req.incidents, key=lambda x: x.score, reverse=True)
+    
+    for inc in sorted_incidents:
+        try:
+            inc_node = ox.nearest_nodes(G, X=inc.lng, Y=inc.lat)
+        except Exception:
+            inc_node = None
+        o_req = inc.requested_officers
+        
+        # Calculate travel time for all stations to this incident
+        station_etas = {}
+        for s in req.stations:
+            s_node = station_nodes[s.name]
+            if s_node is not None and inc_node is not None:
+                try:
+                    travel_time = nx.shortest_path_length(G, s_node, inc_node, weight=weight_fn)
+                    travel_time = round(travel_time, 1)
+                except Exception:
+                    dist = haversine_distance(s.lat, s.lng, inc.lat, inc.lng)
+                    travel_time = round((dist / 30.0) * 60.0, 1)
+            else:
+                dist = haversine_distance(s.lat, s.lng, inc.lat, inc.lng)
+                travel_time = round((dist / 30.0) * 60.0, 1)
+            station_etas[s.name] = travel_time
+            
+        # Single station scores
+        single_scores = []
+        for s in req.stations:
+            o_avail = available_officers[s.name]
+            p_deficit = max(0, o_req - o_avail)
+            s_dispatch = round(1.0 * station_etas[s.name] + 10.0 * p_deficit, 1)
+            single_scores.append((s, s_dispatch, p_deficit))
+            
+        # Find best single station
+        best_single_station, best_single_score, best_single_deficit = min(single_scores, key=lambda x: x[1])
+        
+        chosen_stations = [best_single_station]
+        is_swarm = False
+        final_score = best_single_score
+        
+        # Swarm Protocol Trigger
+        if best_single_deficit > 0:
+            # Find the 3 nearest neighbors to the best station by travel time
+            other_stations = [s for s in req.stations if s.name != best_single_station.name]
+            other_stations.sort(key=lambda s: station_etas[s.name])
+            neighbors = other_stations[:3]
+            
+            swarm_options = []
+            # Combos of size 2
+            for n in neighbors:
+                swarm_options.append([best_single_station, n])
+            # Combos of size 3
+            if len(neighbors) >= 2:
+                for n1, n2 in itertools.combinations(neighbors, 2):
+                    swarm_options.append([best_single_station, n1, n2])
+                    
+            best_swarm_option = None
+            best_swarm_score = float("inf")
+            
+            for option in swarm_options:
+                k = len(option)
+                max_arrival = max(station_etas[s.name] for s in option)
+                combined_avail = sum(available_officers[s.name] for s in option)
+                p_deficit_swarm = max(0, o_req - combined_avail)
+                s_swarm = round(1.0 * max_arrival + 5.0 * (k - 1) + 10.0 * p_deficit_swarm, 1)
+                
+                if s_swarm < best_swarm_score:
+                    best_swarm_score = s_swarm
+                    best_swarm_option = option
+            
+            if best_swarm_score < best_single_score:
+                chosen_stations = best_swarm_option
+                is_swarm = True
+                final_score = best_swarm_score
+                
+        # Allocate officers
+        allocated_details = []
+        needed = o_req
+        
+        # Sort chosen stations: primary (best_single) first, then neighbors by ETA
+        sorted_chosen = [chosen_stations[0]]
+        if len(chosen_stations) > 1:
+            sorted_chosen.extend(sorted(chosen_stations[1:], key=lambda s: station_etas[s.name]))
+            
+        for s in sorted_chosen:
+            if needed <= 0:
+                break
+            avail = available_officers[s.name]
+            assigned = min(needed, avail)
+            if assigned > 0:
+                available_officers[s.name] -= assigned
+                station_allocs_dict[s.name]["available"] = available_officers[s.name]
+                
+                alloc_item = {
+                    "incidentId": inc.id,
+                    "incidentLabel": f"{inc.kind} @ {inc.location}",
+                    "officers": assigned,
+                    "eta": station_etas[s.name],
+                    "station": s.name
+                }
+                station_allocs_dict[s.name]["allocations"].append(alloc_item)
+                allocated_details.append({
+                    "station": s.name,
+                    "officers": assigned,
+                    "eta": station_etas[s.name]
+                })
+                needed -= assigned
+                
+        total_assigned = o_req - needed
+        
+        incident_allocs.append({
+            "id": inc.id,
+            "label": f"{inc.kind} @ {inc.location}",
+            "score": inc.score,
+            "requested": o_req,
+            "assigned": total_assigned,
+            "stations": allocated_details
+        })
+        
+        # Deployment Order Note and Status
+        is_dispatched = inc.status == "Dispatched"
+        is_resolved = inc.status == "Resolved"
+        
+        if total_assigned > 0:
+            if is_swarm:
+                sources_str = ", ".join(f"{s['station']} ({s['officers']})" for s in allocated_details)
+                note_str = f"Swarm Protocol: Dispatched {total_assigned} officers from {sources_str}."
+            else:
+                note_str = f"Dispatched {total_assigned} officers from {allocated_details[0]['station']} (ETA {allocated_details[0]['eta']} min)."
+        else:
+            note_str = f"Needs {o_req} officers. Shortage across neighboring stations."
+            
+        max_eta = max((s["eta"] for s in allocated_details), default=0.0)
+        
+        deployment_orders.append({
+            "id": inc.id,
+            "incidentId": inc.id,
+            "incidentLabel": f"{inc.kind} @ {inc.location}",
+            "officers": total_assigned,
+            "stations": allocated_details,
+            "eta": max_eta if total_assigned > 0 else None,
+            "note": note_str,
+            "status": "Dispatched" if is_dispatched else ("Staged" if total_assigned > 0 else "Pending")
+        })
+        
+    # Autoreinforcement selection (best remaining station)
+    best_reinforcement = None
+    remaining_stations = [s for s in req.stations if available_officers[s.name] > 0]
+    if remaining_stations and req.incidents:
+        # Sort remaining stations by default response time
+        remaining_stations.sort(key=lambda s: s.responseMin)
+        best_reinforcement = {
+            "station": remaining_stations[0].name,
+            "officers": available_officers[remaining_stations[0].name],
+            "eta": remaining_stations[0].responseMin
+        }
+        
+    # Team assignments
+    team_assignments = []
+    labels = ["Alpha", "Bravo", "Charlie", "Delta"]
+    capabilities = [
+        ["Signal Control", "Traffic Diversion"],
+        ["Parking Management", "Crowd Flow"],
+        ["Barricading", "Route Security"],
+        ["Emergency Response", "Rapid Extraction"],
+    ]
+    for index, item in enumerate(sorted_incidents[:4]):
+        members = min(10, max(6, int(round(item.score / 12.0))))
+        team_assignments.append({
+            "name": labels[index],
+            "members": members,
+            "capabilities": capabilities[index],
+            "incidentLabel": f"{item.kind} · {item.location}"
+        })
+        
+    return {
+        "stationAllocations": list(station_allocs_dict.values()),
+        "incidentAllocations": incident_allocs,
+        "bestReinforcement": best_reinforcement,
+        "teamAssignments": team_assignments,
+        "deploymentOrders": deployment_orders
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
