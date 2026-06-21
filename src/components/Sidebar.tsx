@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import {
-  Brain, Layers, CalendarClock, Siren, Zap, BarChart2,
+  LayoutGrid, Brain, Layers, CalendarClock, Siren, Zap, BarChart2,
   PanelLeftClose, PanelLeftOpen, Sun, Moon
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -11,7 +11,8 @@ interface SidebarProps {
 }
 
 const links = [
-  { to: "/", label: "Dynamic Diversion Generator", icon: Brain },
+  { to: "/", label: "Portal Hub", icon: LayoutGrid },
+  { to: "/diversions", label: "Dynamic Diversion Generator", icon: Brain },
   { to: "/deployment", label: "Intelligent Deployment Engine", icon: Layers },
   { to: "/planner", label: "Event Planner", icon: CalendarClock },
   { to: "/incidents", label: "Incident Reporting", icon: Siren },

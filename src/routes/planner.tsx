@@ -66,7 +66,7 @@ function PlannerPage() {
             {events.length === 0 && (
               <div className="rounded-2xl border border-dashed border-border panel-glass p-10 text-center text-sm text-muted-foreground">
                 No events scheduled yet. Add one here, or run an assessment on the{" "}
-                <Link to="/" className="text-primary underline">Command</Link> page and schedule it.
+                <Link to="/diversions" className="text-primary underline">Command</Link> page and schedule it.
               </div>
             )}
             {events.map((e) => (
