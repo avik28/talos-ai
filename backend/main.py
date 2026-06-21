@@ -1110,15 +1110,78 @@ async def get_dispatch_plan(req: DispatchPlanRequest):
         })
         
     # Autoreinforcement selection (best remaining station)
+    # 1. Map active incidents to their closest station based on Haversine distance
+    station_incidents = {s.name: [] for s in req.stations}
+    for inc in req.incidents:
+        if inc.status == "Resolved":
+            continue
+        closest_station_name = None
+        min_dist = float("inf")
+        for s in req.stations:
+            dist = haversine_distance(s.lat, s.lng, inc.lat, inc.lng)
+            if dist < min_dist:
+                min_dist = dist
+                closest_station_name = s.name
+        if closest_station_name:
+            station_incidents[closest_station_name].append(inc)
+
+    # 2. Compute reinforcement benefit scores for all stations
+    now_ms = int(time.time() * 1000)
+    sev_map = {"Low": 18, "Medium": 38, "High": 60, "Critical": 82}
+    reinforcement_benefits = []
+    
+    for s in req.stations:
+        inc_list = station_incidents[s.name]
+        if not inc_list:
+            score = 0
+            reasons = ["No active incidents in station area"]
+        else:
+            B_base = max(sev_map.get(inc.severity, 18) for inc in inc_list)
+            
+            # Age escalation
+            age_escalations = []
+            for inc in inc_list:
+                age_min = max(0, int((now_ms - inc.createdAt) / 60000))
+                if age_min >= 25:
+                    age_escalations.append(22)
+                elif age_min >= 10:
+                    age_escalations.append(12)
+                else:
+                    age_escalations.append(0)
+            A_esc = max(age_escalations) if age_escalations else 0
+            
+            # Clustering/Corridor
+            n_incidents = len(inc_list)
+            C_corridor = (10 + (n_incidents - 1) * 8) if n_incidents >= 2 else 0
+            
+            # Mitigation Adjustment (officersAvailable represents current staffing)
+            M_adj = -2 * s.officersAvailable
+            
+            score = max(0, min(100, B_base + A_esc + C_corridor + M_adj))
+            reasons = [
+                f"Base severity: {B_base}",
+                f"Age escalation: +{A_esc}",
+                f"Clustering: +{C_corridor}",
+                f"Mitigation: {M_adj}"
+            ]
+            
+        reinforcement_benefits.append({
+            "station": s.name,
+            "score": score,
+            "reasons": reasons
+        })
+        
+    sorted_benefits = sorted(reinforcement_benefits, key=lambda x: x["score"], reverse=True)
+    
     best_reinforcement = None
-    remaining_stations = [s for s in req.stations if available_officers[s.name] > 0]
-    if remaining_stations and req.incidents:
-        # Sort remaining stations by default response time
-        remaining_stations.sort(key=lambda s: s.responseMin)
+    if sorted_benefits and sorted_benefits[0]["score"] > 0:
+        target_name = sorted_benefits[0]["station"]
+        target_station = next(s for s in req.stations if s.name == target_name)
         best_reinforcement = {
-            "station": remaining_stations[0].name,
-            "officers": available_officers[remaining_stations[0].name],
-            "eta": remaining_stations[0].responseMin
+            "station": target_name,
+            "score": sorted_benefits[0]["score"],
+            "eta": target_station.responseMin,
+            "reasons": sorted_benefits[0]["reasons"]
         }
         
     # Team assignments
@@ -1144,7 +1207,8 @@ async def get_dispatch_plan(req: DispatchPlanRequest):
         "incidentAllocations": incident_allocs,
         "bestReinforcement": best_reinforcement,
         "teamAssignments": team_assignments,
-        "deploymentOrders": deployment_orders
+        "deploymentOrders": deployment_orders,
+        "reinforcementBenefits": sorted_benefits
     }
 
 

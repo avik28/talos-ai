@@ -41,7 +41,6 @@ export const Route = createFileRoute("/deployment")({
 
 // City-wide equipment pools (officers come from station rosters).
 const CITY_POOL = { barricades: 90, towTrucks: 8, ambulances: 6 };
-const TOTAL_OFFICERS = STATIONS.reduce((s, x) => s + x.officersAvailable, 0);
 
 function eventResourceProfile(event: PlannedEvent) {
   const load = Math.min(event.attendees / 35000, 1);
@@ -83,10 +82,115 @@ function eventResourceProfile(event: PlannedEvent) {
 }
 
 function DeploymentPage() {
+  const [stations, setStations] = useState(STATIONS);
   const { incidents, updateIncident } = useIncidents();
   const { events } = useEvents();
   const openIncidents = incidents.filter((i) => i.status !== "Resolved");
   const upcoming = events.filter((e) => e.status !== "Completed");
+
+  const totalOfficers = useMemo(() => stations.reduce((s, x) => s + x.officersAvailable, 0), [stations]);
+
+  // Compute station reinforcement benefits based on closest active incidents.
+  // Formula variation: R_benefit = clamp(B_base + A_esc + C_corridor + M_adj, 0, 100)
+  const reinforcementBenefits = useMemo(() => {
+    const sevMap: Record<string, number> = { Low: 18, Medium: 38, High: 60, Critical: 82 };
+    const now = Date.now();
+
+    // 1. Map active incidents to their closest station by coordinates
+    const stationIncidents: Record<string, typeof openIncidents> = {};
+    stations.forEach(s => {
+      stationIncidents[s.name] = [];
+    });
+
+    openIncidents.forEach(inc => {
+      const locLower = inc.location.toLowerCase();
+      const place = ALL_PLACES.find(p => locLower.includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+      
+      let closestStationName = "";
+      let minDist = Infinity;
+
+      stations.forEach(s => {
+        // Haversine distance
+        const R = 6371; // km
+        const dLat = (place.lat - s.lat) * Math.PI / 180;
+        const dLon = (place.lng - s.lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(s.lat * Math.PI / 180) * Math.cos(place.lat * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const dist = R * c;
+
+        if (dist < minDist) {
+          minDist = dist;
+          closestStationName = s.name;
+        }
+      });
+
+      if (closestStationName) {
+        stationIncidents[closestStationName].push(inc);
+      }
+    });
+
+    // 2. Compute reinforcement benefit scores
+    return stations.map(s => {
+      const incList = stationIncidents[s.name] ?? [];
+      if (incList.length === 0) {
+        return {
+          stationId: s.id,
+          stationName: s.name,
+          score: 0,
+          reasons: ["No active incidents in station area"]
+        };
+      }
+
+      const B_base = Math.max(...incList.map(inc => sevMap[inc.severity] ?? 18));
+      
+      const ageEscalations = incList.map(inc => {
+        const ageMin = Math.max(0, Math.floor((now - inc.createdAt) / 60000));
+        return ageMin >= 25 ? 22 : ageMin >= 10 ? 12 : 0;
+      });
+      const A_esc = Math.max(...ageEscalations, 0);
+
+      const nIncidents = incList.length;
+      const C_corridor = nIncidents >= 2 ? 10 + (nIncidents - 1) * 8 : 0;
+
+      const M_adj = -2 * s.officersAvailable;
+
+      const score = Math.max(0, Math.min(100, B_base + A_esc + C_corridor + M_adj));
+      const reasons = [
+        `Base severity: ${B_base}`,
+        `Age escalation: +${A_esc}`,
+        `Clustering: +${C_corridor}`,
+        `Mitigation: ${M_adj}`
+      ];
+
+      return {
+        stationId: s.id,
+        stationName: s.name,
+        score,
+        reasons
+      };
+    }).sort((a, b) => b.score - a.score);
+  }, [stations, openIncidents]);
+
+  const topBenefitStation = useMemo(() => {
+    const activeBenefits = reinforcementBenefits.filter(b => b.score > 0);
+    return activeBenefits.length > 0 ? activeBenefits[0] : null;
+  }, [reinforcementBenefits]);
+
+  const handleApproveReinforcement = (stationName: string) => {
+    setStations(prev => prev.map(s => {
+      if (s.name === stationName) {
+        const updated = s.officersAvailable + 5;
+        toast.success(`Approved reinforcements: +5 officers added to ${s.name} roster (Model OP). Current available: ${updated}.`);
+        return {
+          ...s,
+          officersAvailable: updated
+        };
+      }
+      return s;
+    }));
+  };
 
   const forecast = useMemo(() => {
     let officers = 0, barricades = 0, towTrucks = 0, ambulances = 0;
@@ -115,7 +219,7 @@ function DeploymentPage() {
   }, [upcoming]);
 
   const resourceItems = [
-    { id: "officers", label: "Officers", icon: <ShieldAlert className="size-4" />, need: forecast.officers, have: TOTAL_OFFICERS },
+    { id: "officers", label: "Officers", icon: <ShieldAlert className="size-4" />, need: forecast.officers, have: totalOfficers },
     { id: "barricades", label: "Barricades", icon: <Cone className="size-4" />, need: forecast.barricades, have: CITY_POOL.barricades },
     { id: "towTrucks", label: "Tow trucks", icon: <Truck className="size-4" />, need: forecast.towTrucks, have: CITY_POOL.towTrucks },
     { id: "ambulances", label: "Ambulances", icon: <Ambulance className="size-4" />, need: forecast.ambulances, have: CITY_POOL.ambulances },
@@ -189,7 +293,7 @@ function DeploymentPage() {
               lng: place.lng
             };
           }),
-          stations: STATIONS,
+          stations: stations,
           variables: {
             rain: incidents.some(i => i.kind === "Waterlogging"),
             peakHour: (() => {
@@ -218,9 +322,9 @@ function DeploymentPage() {
     return () => {
       active = false;
     };
-  }, [scoredIncidents, incidents]);
+  }, [scoredIncidents, incidents, stations]);
 
-  const localPlan = useMemo(() => buildDeploymentPlan(scoredIncidents, STATIONS), [scoredIncidents]);
+  const localPlan = useMemo(() => buildDeploymentPlan(scoredIncidents, stations), [scoredIncidents, stations]);
   const stationAssignments = backendAssignments ?? localPlan;
 
   const requiredOfficers = stationAssignments.incidentAllocations.reduce((sum: number, i: any) => sum + i.requested, 0);
@@ -358,7 +462,7 @@ function DeploymentPage() {
                         <Building2 className="size-4" /> Officer pool by station
                       </h2>
                       <div className="space-y-2">
-                        {STATIONS.map((s) => (
+                        {stations.map((s) => (
                           <div key={s.id} className="flex items-center justify-between rounded-lg border border-border bg-input/30 px-3 py-2 text-xs">
                             <span className="font-semibold">{s.name}</span>
                             <span className="text-mono text-muted-foreground">{s.officersAvailable} avail · {s.responseMin}m ETA</span>
@@ -366,7 +470,7 @@ function DeploymentPage() {
                         ))}
                         <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-bold text-primary">
                           <span>Total available</span>
-                          <span className="text-mono">{TOTAL_OFFICERS} officers</span>
+                          <span className="text-mono">{totalOfficers} officers</span>
                         </div>
                       </div>
                     </div>
@@ -527,7 +631,7 @@ function DeploymentPage() {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-border/40">
-                                {STATIONS.map((station) => {
+                                {stations.map((station) => {
                                   const alloc = stationAssignments.incidentAllocations
                                     .find((ia: any) => ia.id === selectedEntry.incident.id)
                                     ?.stations.find((s: any) => s.station === station.name);
@@ -706,19 +810,75 @@ function DeploymentPage() {
               </Panel>
 
               <Panel title="Auto Reinforcement Engine" icon={<Target className="size-4" />}>
-                {reinforcement ? (
-                  <div className="rounded-2xl border border-border bg-input/30 p-4">
-                    <p className="text-sm font-semibold">Resource shortage detected</p>
-                    <p className="mt-3 text-sm">Need: <span className="font-semibold">{requiredOfficers - assignedOfficers}</span> officers</p>
-                    <p className="mt-2 text-sm">Best source: <span className="font-semibold">{reinforcement.station}</span></p>
-                    <p className="mt-2 text-sm">ETA: <span className="font-semibold">{reinforcement.eta} min</span></p>
-                    <button className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110">
-                      <CheckCircle2 className="size-4" /> Approve reinforcement
-                    </button>
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Shows which police station can benefit most from reinforcements using the incident priority math. Click to dispatch reserves.
+                </p>
+                {topBenefitStation ? (
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 relative overflow-hidden">
+                      <div className="absolute right-2 top-2 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-primary/20 text-primary">
+                        Model OP
+                      </div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Top Recommendation</p>
+                      <h3 className="mt-1 text-base font-extrabold text-foreground">{topBenefitStation.stationName}</h3>
+                      
+                      <div className="mt-3 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Priority Score:</span>
+                        <span className="font-mono font-extrabold text-primary">{topBenefitStation.score} / 100</span>
+                      </div>
+
+                      <div className="mt-2 text-[10px] text-muted-foreground leading-normal">
+                        {topBenefitStation.reasons.join(" · ")}
+                      </div>
+
+                      <button
+                        onClick={() => handleApproveReinforcement(topBenefitStation.stationName)}
+                        className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition hover:brightness-110 shadow-md"
+                      >
+                        <CheckCircle2 className="size-4" /> Approve reinforcement (+5 officers)
+                      </button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Benefit Priority Ranking</p>
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {reinforcementBenefits.map((item) => {
+                          const stationObj = stations.find(s => s.name === item.stationName);
+                          const barColor = item.score >= 70 ? "bg-red-500" : item.score >= 40 ? "bg-amber-500" : "bg-emerald-500";
+                          return (
+                            <div key={item.stationName} className="rounded-xl border border-border bg-input/20 p-2.5 flex flex-col gap-2">
+                              <div className="flex items-center justify-between text-xs">
+                                <div>
+                                  <span className="font-semibold text-foreground">{item.stationName}</span>
+                                  <span className="ml-2 text-[10px] text-muted-foreground">({stationObj?.officersAvailable} officers)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-foreground text-[10px]">{item.score}%</span>
+                                  <button
+                                    onClick={() => handleApproveReinforcement(item.stationName)}
+                                    className="rounded px-1.5 py-0.5 text-[9px] font-bold bg-muted hover:bg-primary hover:text-primary-foreground transition-all"
+                                  >
+                                    +5
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="h-1 w-full overflow-hidden rounded-full bg-input/60">
+                                <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${item.score}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-success/40 bg-success/10 p-4 text-sm text-success">
-                    All officer needs are covered. No reinforcement required.
+                  <div className="rounded-2xl border border-success/40 bg-success/10 p-4 text-xs text-success flex flex-col gap-2">
+                    <div className="flex items-center gap-1.5 font-bold uppercase tracking-wider">
+                      <CheckCircle2 className="size-4" /> No Reinforcements Needed
+                    </div>
+                    <p className="text-[11px] text-success/90">
+                      All station areas are currently clear of active incidents or have adequate resource coverage.
+                    </p>
                   </div>
                 )}
               </Panel>
