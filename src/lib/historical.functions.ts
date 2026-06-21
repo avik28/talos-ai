@@ -1,6 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
-import { promises as fs } from "fs";
-import { join } from "path";
+
 import {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
@@ -92,9 +90,7 @@ function parseDatasetCsv(csv: string): SupabaseIncident[] {
   });
 }
 
-export const fetchHistoricalData = createServerFn({ method: "GET" }).handler(async () => {
-  // IMPORTANT: this runs on the server (SSR). It must NEVER throw — any
-  // uncaught exception here causes the "This page didn't load" 500 error.
+export async function fetchHistoricalData(): Promise<HistoricalData> {
   try {
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
       const [incidents, stations, plans] = await Promise.all([
@@ -115,8 +111,11 @@ export const fetchHistoricalData = createServerFn({ method: "GET" }).handler(asy
   }
 
   try {
-    const filePath = join(process.cwd(), "dataset.csv");
-    const contents = await fs.readFile(filePath, "utf8");
+    const response = await fetch("/dataset.csv");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const contents = await response.text();
     const incidents = parseDatasetCsv(contents);
     return {
       source: "dataset" as const,
@@ -133,5 +132,5 @@ export const fetchHistoricalData = createServerFn({ method: "GET" }).handler(asy
       plans: [],
     };
   }
-});
+}
 

@@ -1,6 +1,6 @@
 import { API_BASE } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "react-router-dom";
 import {
   Activity, Radio, Cone, Truck, Ambulance, ShieldAlert, Users, AlertTriangle,
   MapPin, Clock, Gauge, Zap, ArrowRight, Copy, Check, Siren, Brain, History,
@@ -677,7 +677,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       createdAt: Date.now(),
     });
     setScheduled(true);
-    setTimeout(() => navigate({ to: "/planner" }), 600);
+    setTimeout(() => navigate("/planner"), 600);
   }
 
   useEffect(() => {

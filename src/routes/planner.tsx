@@ -1,6 +1,6 @@
 import { API_BASE } from "@/lib/api";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   CalendarClock, Plus, Trash2, MapPin, Clock, Users, Activity, Brain,
   CheckCircle2, PlayCircle, ClipboardCheck, TrendingUp, ArrowRight, BrainCircuit,
@@ -11,23 +11,16 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { useEvents, uid, type PlannedEvent } from "@/lib/store";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/planner")({
-  head: () => ({
-    meta: [
-      { title: "Event Planner — VYUHIQ" },
-      { name: "description", content: "Schedule major events, track operational status, and capture post-event feedback to improve future VYUHIQ predictions." },
-    ],
-  }),
-  component: PlannerPage,
-});
-
 const statusStyle = {
   Scheduled: "border-info/40 bg-info/10 text-info",
   Active: "border-warning/40 bg-warning/10 text-warning",
   Completed: "border-success/40 bg-success/10 text-success",
 } as const;
 
-function PlannerPage() {
+export default function PlannerPage() {
+  useEffect(() => {
+    document.title = "Event Planner — VYUHIQ";
+  }, []);
   const { events, addEvent, updateEvent, removeEvent } = useEvents();
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
   const [retrainingState, setRetrainingState] = useState<"idle" | "running" | "completed">("idle");

@@ -1,20 +1,11 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link } from "react-router-dom";
 import { Brain, Layers, CalendarClock, Siren, Zap, BarChart2, ArrowRight } from "lucide-react";
+import { useEffect } from "react";
 
-export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "VYUHIQ — Strategic Traffic Command & Resource Optimization Platform" },
-      {
-        name: "description",
-        content: "AI traffic command center for Bengaluru: predict event congestion, recommend resources, generate diversions, and learn from past events.",
-      },
-    ],
-  }),
-  component: LandingPage,
-});
-
-function LandingPage() {
+export default function LandingPage() {
+  useEffect(() => {
+    document.title = "VYUHIQ — Strategic Traffic Command & Resource Optimization Platform";
+  }, []);
   const cards = [
     {
       to: "/diversions",

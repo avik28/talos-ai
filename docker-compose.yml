@@ -30,6 +30,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./dataset.csv:/app/dataset.csv
+      - ./public/dataset.csv:/app/public/dataset.csv
     environment:
       - PORT=8000

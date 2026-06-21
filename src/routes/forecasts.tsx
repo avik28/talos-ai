@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, ReactNode } from "react";
 import { TrendingUp, Clock, AlertTriangle, CloudRain, ShieldAlert, BarChart2, Check, Crosshair, Gauge, Activity, MapPin, Users, Cone, Truck, Ambulance, Brain, Zap, History, Siren, ArrowRight, Megaphone, Sparkles, RotateCw, Copy, ChevronRight, SlidersHorizontal, TrendingDown, Minus, CalendarPlus } from "lucide-react";
 import { useEvents, useIncidents, Incident, PlannedEvent } from "@/lib/store";
@@ -8,20 +7,10 @@ import { useMemo } from "react";
 import { generateActionPlan } from "@/lib/actionplan.functions";
 import { predictImpactWithModel } from "@/lib/diversionEngine";
 
-export const Route = createFileRoute("/forecasts")({
-  head: () => ({
-    meta: [
-      { title: "AI Traffic Forecasting — VYUHIQ" },
-      {
-        name: "description",
-        content: "Forecast travel delays and incident clearance times using trained ML models.",
-      },
-    ],
-  }),
-  component: ForecastsPage,
-});
-
-function ForecastsPage() {
+export default function ForecastsPage() {
+  useEffect(() => {
+    document.title = "AI Traffic Forecasting — VYUHIQ";
+  }, []);
   const { incidents } = useIncidents();
   const { events } = useEvents();
 

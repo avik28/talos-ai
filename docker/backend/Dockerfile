@@ -11,7 +11,7 @@ COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy dataset and backend codebase
-COPY dataset.csv ./dataset.csv
+COPY public/dataset.csv ./public/dataset.csv
 COPY backend/ ./backend/
 
 EXPOSE 8000

@@ -1,5 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-
 import {
   BarChart,
   Bar,
@@ -15,19 +13,7 @@ import {
 import { BarChart2, ShieldAlert, CheckCircle2, TrendingUp, Calendar, BrainCircuit, AlertTriangle, Siren } from "lucide-react";
 import { useEvents, useIncidents } from "@/lib/store";
 import { predict } from "@/lib/gridmind";
-
-export const Route = createFileRoute("/analytics")({
-  head: () => ({
-    meta: [
-      { title: "Traffic Analytics — VYUHIQ" },
-      {
-        name: "description",
-        content: "Analyze historical incidents, clearance averages, and diversion effectiveness.",
-      },
-    ],
-  }),
-  component: AnalyticsPage,
-});
+import { useEffect } from "react";
 
 const dataCause = [
   { name: "Breakdown", value: 924 },
@@ -48,7 +34,10 @@ const dataZone = [
 
 const COLORS = ["#3b82f6", "#ef4444", "#eab308", "#10b981", "#8b5cf6", "#6b7280"];
 
-function AnalyticsPage() {
+export default function AnalyticsPage() {
+  useEffect(() => {
+    document.title = "Traffic Analytics — VYUHIQ";
+  }, []);
   const { events } = useEvents();
   const { incidents } = useIncidents();
   

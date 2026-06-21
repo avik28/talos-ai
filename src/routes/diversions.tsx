@@ -1,20 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { UnifiedCommandCenter } from "@/components/UnifiedCommandCenter";
+import { useEffect } from "react";
 
-export const Route = createFileRoute("/diversions")({
-  head: () => ({
-    meta: [
-      { title: "Dynamic Diversion Generator — VYUHIQ" },
-      {
-        name: "description",
-        content:
-          "AI decision-support system featuring threshold-triggered route rotation, What-If console, and pre-aged routing stacks.",
-      },
-    ],
-  }),
-  component: DiversionsRoute,
-});
-
-function DiversionsRoute() {
+export default function DiversionsRoute() {
+  useEffect(() => {
+    document.title = "Dynamic Diversion Generator — VYUHIQ";
+  }, []);
+  
   return <UnifiedCommandCenter defaultTab="sandbox" />;
 }

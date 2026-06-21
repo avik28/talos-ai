@@ -33,7 +33,7 @@ def reload_graph_if_changed():
         print(f"[graph] Error loading: {e}")
 
 MODEL_PATH = os.path.join(BACKEND_DIR, "model", "dual_intake_model.pkl")
-DATASET_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "dataset.csv")
+DATASET_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "public", "dataset.csv")
 
 model = None
 T_BASE_MAP = {}
@@ -1316,6 +1316,50 @@ async def post_retrain(req: RetrainRequest):
     retrain_model_sync()
     
     return {"status": "success"}
+
+
+class ActionPlanRequest(BaseModel):
+    briefing: str
+
+@app.post("/api/generate-action-plan")
+async def post_generate_action_plan(req: ActionPlanRequest):
+    lovable_api_key = os.environ.get("LOVABLE_API_KEY")
+    if not lovable_api_key:
+        raise HTTPException(status_code=500, detail="LOVABLE_API_KEY environment variable is not set")
+    
+    system_prompt = (
+        "You are GridMind AI, a senior traffic-operations commander for the Bengaluru City Traffic Police. "
+        "Write a concise, decisive, field-ready EVENT ACTION PLAN that an officer can execute immediately. "
+        "Use plain text only (no markdown symbols like # or *). Use UPPERCASE section headers and short dash bullets. "
+        "Include these sections in order: SITUATION, OBJECTIVE, DEPLOYMENT, TRAFFIC CONTROL, DIVERSIONS, EMERGENCY CORRIDOR, "
+        "ESCALATION TRIGGERS, COMMS & PUBLIC ADVISORY, and PRIOR-EVENT LESSON. "
+        "Be specific and operational. Keep the whole plan under 350 words."
+    )
+    
+    url = "https://ai.gateway.lovable.dev/v1/chat/completions"
+    headers = {
+        "Lovable-API-Key": lovable_api_key,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "google/gemini-3-flash-preview",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Generate the action plan from this structured briefing:\n\n{req.briefing}"}
+        ]
+    }
+    
+    import requests
+    try:
+        res = requests.post(url, headers=headers, json=payload, timeout=30)
+        if res.status_code != 200:
+            return {"plan": "", "source": "error", "error": f"AI Gateway returned status {res.status_code}: {res.text}", "status": res.status_code}
+        
+        data = res.json()
+        choice_text = data["choices"][0]["message"]["content"]
+        return {"plan": choice_text.strip(), "source": "ai"}
+    except Exception as e:
+        return {"plan": "", "source": "error", "error": str(e), "status": 500}
 
 
 if __name__ == "__main__":

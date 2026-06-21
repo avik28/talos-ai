@@ -1,5 +1,4 @@
 import { API_BASE } from "@/lib/api";
-import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import {
   ShieldAlert,
@@ -29,16 +28,6 @@ import { useIncidents, useEvents } from "@/lib/store";
 import { STATIONS, predict, fmtHour, VENUES } from "@/lib/gridmind";
 import type { PlannedEvent } from "@/lib/store";
 import { ALL_PLACES, DEFAULT_PLACE } from "@/lib/locations";
-
-export const Route = createFileRoute("/deployment")({
-  head: () => ({
-    meta: [
-      { title: "Deployment Engine — VYUHIQ" },
-      { name: "description", content: "Allocate officers, resolve station conflicts, create deployment squads, and track coverage in the new Deployment Engine." },
-    ],
-  }),
-  component: DeploymentPage,
-});
 
 // City-wide equipment pools (officers come from station rosters).
 const CITY_POOL = { barricades: 90, towTrucks: 8, ambulances: 6 };
@@ -82,7 +71,10 @@ function eventResourceProfile(event: PlannedEvent) {
   return profile;
 }
 
-function DeploymentPage() {
+export default function DeploymentPage() {
+  useEffect(() => {
+    document.title = "Deployment Engine — VYUHIQ";
+  }, []);
   const [stations, setStations] = useState(STATIONS);
   const { incidents, updateIncident } = useIncidents();
   const { events } = useEvents();

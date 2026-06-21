@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { NavLink as Link } from "react-router-dom";
 import {
   LayoutGrid, Brain, Layers, CalendarClock, Siren, Zap, BarChart2,
   PanelLeftClose, PanelLeftOpen, Sun, Moon
@@ -101,7 +101,7 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
             <Link
               key={link.to}
               to={link.to}
-              activeOptions={{ exact: link.to === "/" }}
+              end={link.to === "/"}
               className={`group flex items-center rounded-xl transition-all duration-200 [&.active]:bg-primary [&.active]:text-primary-foreground [&.active]:shadow-glow ${expanded
                 ? "gap-3 px-3 py-2.5 text-xs font-bold text-muted-foreground hover:bg-input/40 hover:text-foreground"
                 : "justify-center p-3 text-muted-foreground hover:bg-input/40 hover:text-foreground"

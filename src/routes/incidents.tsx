@@ -1,6 +1,5 @@
 import { API_BASE } from "@/lib/api";
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Siren, Plus, Trash2, AlertTriangle, Clock, MapPin, Radio, CheckCircle2, Send,
   TrendingUp, ShieldAlert, Truck, Ambulance, Zap, ClipboardCheck, Brain, ArrowRight, BrainCircuit,
@@ -14,16 +13,6 @@ import { LocationSearch } from "@/components/LocationSearch";
 import { DEFAULT_PLACE, ALL_PLACES } from "@/lib/locations";
 import { toast } from "sonner";
 import type { Venue } from "@/lib/gridmind";
-
-export const Route = createFileRoute("/incidents")({
-  head: () => ({
-    meta: [
-      { title: "Incident Reporting — VYUHIQ" },
-      { name: "description", content: "Report and track live traffic incidents — accidents, breakdowns, signal failures and crowd surges — and dispatch response across Bengaluru." },
-    ],
-  }),
-  component: IncidentsPage,
-});
 
 const KINDS: IncidentKind[] = ["Accident", "Breakdown", "Signal Failure", "Waterlogging", "Road Block", "VIP Movement", "Crowd Surge"];
 const SEVERITIES: IncidentSeverity[] = ["Low", "Medium", "High", "Critical"];
@@ -40,7 +29,10 @@ const statusStyle = {
   Resolved: "border-success/40 bg-success/10 text-success",
 } as const;
 
-function IncidentsPage() {
+export default function IncidentsPage() {
+  useEffect(() => {
+    document.title = "Incident Reporting — VYUHIQ";
+  }, []);
   const { incidents, addIncident, updateIncident, removeIncident } = useIncidents();
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
   const [retrainingState, setRetrainingState] = useState<"idle" | "running" | "completed">("idle");
