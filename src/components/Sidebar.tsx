@@ -67,9 +67,9 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
               </div>
               <div>
                 <h1 className="text-sm font-extrabold leading-tight tracking-tight bg-clip-text bg-gradient-to-r from-primary to-accent">
-                  VYUHIQ
+                  VyuhIQ
                 </h1>
-                <p className="text-[9px] text-muted-foreground font-semibold">Strategic Intel</p>
+                <p className="text-[9px] text-muted-foreground font-semibold">Strategic Traffic Intelligence & Resource Optimization Platform</p>
               </div>
             </Link>
             <button
@@ -103,8 +103,8 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
               to={link.to}
               activeOptions={{ exact: link.to === "/" }}
               className={`group flex items-center rounded-xl transition-all duration-200 [&.active]:bg-primary [&.active]:text-primary-foreground [&.active]:shadow-glow ${expanded
-                  ? "gap-3 px-3 py-2.5 text-xs font-bold text-muted-foreground hover:bg-input/40 hover:text-foreground"
-                  : "justify-center p-3 text-muted-foreground hover:bg-input/40 hover:text-foreground"
+                ? "gap-3 px-3 py-2.5 text-xs font-bold text-muted-foreground hover:bg-input/40 hover:text-foreground"
+                : "justify-center p-3 text-muted-foreground hover:bg-input/40 hover:text-foreground"
                 }`}
               title={!expanded ? link.label : undefined}
             >

@@ -74,7 +74,7 @@ function LandingPage() {
           {/* Subtle gradient glowing blobs */}
           <div className="absolute -right-24 -top-24 size-[400px] rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
           <div className="absolute right-1/4 -bottom-16 size-[320px] rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
-          
+
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
             <div className="flex-1 min-w-0">
               <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/50 px-3 py-1 text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase mb-4">
@@ -88,10 +88,10 @@ function LandingPage() {
                 Forecast, visualize and <span className="text-amber-500">res</span><span className="text-sky-500">pond</span> to traffic events before they choke the city.
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground max-w-3xl mt-3 font-medium leading-relaxed">
-                Gridlock-PR predicts the impact of closures, crowds, and weather, suggesting optimal resource dispatches and dynamic diversions to mitigate urban gridlock.
+                VyuhIQ predicts the impact of closures, crowds, and weather, suggesting optimal resource dispatches and dynamic diversions to mitigate urban gridlock.
               </p>
             </div>
-            
+
             <div className="flex flex-col gap-3 shrink-0">
               <Link
                 to="/diversions"

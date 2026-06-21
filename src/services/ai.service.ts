@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 export interface ClosedRoad {
   name: string;
   lat: number | null;
@@ -31,7 +32,7 @@ export interface WhatIfResponse {
 }
 
 export async function fetchWhatIfAnalysis(req: WhatIfRequest): Promise<WhatIfResponse> {
-  const res = await fetch("http://localhost:8000/api/what-if", {
+  const res = await fetch(`${API_BASE}/api/what-if`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

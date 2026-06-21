@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 export interface ForecastRequest {
   event_cause: string;
   latitude: number;
@@ -12,7 +13,7 @@ export interface ForecastResponse {
 }
 
 export async function fetchClearanceForecast(req: ForecastRequest): Promise<ForecastResponse> {
-  const res = await fetch("http://localhost:8000/api/forecasting/clearance", {
+  const res = await fetch(`${API_BASE}/api/forecasting/clearance`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

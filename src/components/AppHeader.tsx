@@ -51,7 +51,7 @@ export function AppHeader() {
           </div>
           <div className="hidden sm:block">
             <h1 className="text-base font-extrabold leading-tight tracking-tight">
-              VYUHIQ
+              VyuhIQ
             </h1>
             <p className="text-[11px] text-muted-foreground">Strategic Traffic Intelligence & Resource Optimization Platform</p>
           </div>

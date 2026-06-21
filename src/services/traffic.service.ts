@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 import { ClosedRoad } from "./ai.service";
 
 export interface RouteRequest {
@@ -15,7 +16,7 @@ export interface RouteResponse {
 }
 
 export async function fetchRoutePoints(req: RouteRequest): Promise<RouteResponse> {
-  const res = await fetch("http://localhost:8000/api/route", {
+  const res = await fetch(`${API_BASE}/api/route`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

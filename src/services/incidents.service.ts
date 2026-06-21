@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 export interface UrgencyRequest {
   severity: string;
   closure_probability: number;
@@ -8,7 +9,7 @@ export interface UrgencyResponse {
 }
 
 export async function fetchIncidentUrgency(req: UrgencyRequest): Promise<UrgencyResponse> {
-  const res = await fetch("http://localhost:8000/api/incidents/urgency", {
+  const res = await fetch(`${API_BASE}/api/incidents/urgency`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

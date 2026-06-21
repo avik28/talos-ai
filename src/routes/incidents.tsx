@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -172,7 +173,7 @@ function IncidentsPage() {
                         // 1. Fetch prediction
                         let predictedDelayMin = 30;
                         try {
-                          const predRes = await fetch("http://localhost:8000/api/predict-impact", {
+                          const predRes = await fetch(`${API_BASE}/api/predict-impact`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
@@ -200,7 +201,7 @@ function IncidentsPage() {
 
                         // 2. Retrain model
                         try {
-                          const res = await fetch("http://localhost:8000/api/retrain", {
+                          const res = await fetch(`${API_BASE}/api/retrain`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({

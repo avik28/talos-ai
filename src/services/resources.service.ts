@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 export interface ResourceRequest {
   planned: boolean;
   impact_score: number;
@@ -14,7 +15,7 @@ export interface ResourceResponse {
 }
 
 export async function fetchResourceRecommendation(req: ResourceRequest): Promise<ResourceResponse> {
-  const res = await fetch("http://localhost:8000/api/resources/recommend", {
+  const res = await fetch(`${API_BASE}/api/resources/recommend`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

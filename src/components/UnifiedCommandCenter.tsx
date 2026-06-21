@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -493,7 +494,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         };
 
         try {
-          const response = await fetch("http://localhost:8000/api/generate-diversions", {
+          const response = await fetch(`${API_BASE}/api/generate-diversions`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -841,7 +842,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
             }
           }
 
-          const res = await fetch("http://localhost:8000/api/route", {
+          const res = await fetch(`${API_BASE}/api/route`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1260,7 +1261,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         }
       }
 
-      const response = await fetch("http://localhost:8000/api/what-if", {
+      const response = await fetch(`${API_BASE}/api/what-if`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

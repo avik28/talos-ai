@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 // Dynamic Diversion Engine - Decision Support & Route Rotation
 // Focuses on extreme computational efficiency and explicit rule-based logic.
 
@@ -866,7 +867,7 @@ export async function predictImpactWithModel(
   input: ModelPredictionInput
 ): Promise<ModelPredictionResponse> {
   try {
-    const response = await fetch("http://localhost:8000/api/predict-impact", {
+    const response = await fetch(`${API_BASE}/api/predict-impact`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

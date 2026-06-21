@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -82,7 +83,7 @@ function PlannerPage() {
                   setRetrainingState("running");
                   try {
                     const loc = e.location ?? DEFAULT_PLACE;
-                    const res = await fetch("http://localhost:8000/api/retrain", {
+                    const res = await fetch(`${API_BASE}/api/retrain`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({

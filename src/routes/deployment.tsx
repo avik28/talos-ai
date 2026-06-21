@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/api";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
 import {
@@ -304,7 +305,7 @@ function DeploymentPage() {
           }
         };
 
-        const res = await fetch("http://localhost:8000/api/dispatch-plan", {
+        const res = await fetch(`${API_BASE}/api/dispatch-plan`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
