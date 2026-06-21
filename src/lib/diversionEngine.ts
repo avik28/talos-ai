@@ -841,6 +841,8 @@ export interface ModelPredictionInput {
   created_date?: string;
   reason_breakdown?: string;
   actual_clearance_time?: number;
+  estimated_volume?: number;
+  duration_hr?: number;
 }
 
 export interface ModelPredictionResponse {
@@ -891,9 +893,9 @@ export async function predictImpactWithModel(
       planned: input.event_type === "planned",
       severity: (input.priority === "Critical" ? "Critical" : input.priority === "High" ? "High" : input.priority === "Medium" ? "Medium" : "Low") as any,
       historicalClosureProbability: 0.25,
-      estimatedVolume: input.event_type === "planned" ? 18000 : 8000,
+      estimatedVolume: input.estimated_volume ?? (input.event_type === "planned" ? 18000 : 8000),
       hourlyCapacity: 4000,
-      durationHr: 2
+      durationHr: input.duration_hr ?? 2
     });
     
     const strike_threshold = s_impact * 1.25;

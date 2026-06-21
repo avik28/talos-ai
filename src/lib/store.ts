@@ -44,6 +44,11 @@ export interface Incident {
   reporter: string;
   status: "Open" | "Dispatched" | "Resolved";
   createdAt: number;
+  // Post-incident feedback
+  actualDelayMin?: number;
+  actualOfficers?: number;
+  outcome?: "Successful" | "Partial" | "Strained";
+  lesson?: string;
 }
 
 const EVENTS_KEY = "gridmind.events.v1";

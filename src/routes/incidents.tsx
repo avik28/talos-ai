@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Siren, Plus, Trash2, AlertTriangle, Clock, MapPin, Radio, CheckCircle2, Send,
-  TrendingUp, ShieldAlert, Truck, Ambulance, Zap,
+  TrendingUp, ShieldAlert, Truck, Ambulance, Zap, ClipboardCheck, Brain, ArrowRight,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";
 import {
@@ -17,7 +17,7 @@ import type { Venue } from "@/lib/gridmind";
 export const Route = createFileRoute("/incidents")({
   head: () => ({
     meta: [
-      { title: "Incident Reporting — GridMind AI" },
+      { title: "Incident Reporting — VYUHIQ" },
       { name: "description", content: "Report and track live traffic incidents — accidents, breakdowns, signal failures and crowd surges — and dispatch response across Bengaluru." },
     ],
   }),
@@ -41,6 +41,7 @@ const statusStyle = {
 
 function IncidentsPage() {
   const { incidents, addIncident, updateIncident, removeIncident } = useIncidents();
+  const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
   const open = incidents.filter((i) => i.status !== "Resolved");
 
   // Smart Escalation Engine: rank every open incident by computed urgency.
@@ -144,7 +145,29 @@ function IncidentsPage() {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Action active={i.status === "Dispatched"} onClick={() => updateIncident(i.id, { status: "Dispatched" })} icon={<Send className="size-3.5" />}>Dispatch unit</Action>
                     <Action active={i.status === "Resolved"} onClick={() => updateIncident(i.id, { status: "Resolved" })} icon={<CheckCircle2 className="size-3.5" />}>Resolve</Action>
+                    <Action active={feedbackFor === i.id || i.status === "Resolved"} onClick={() => setFeedbackFor(feedbackFor === i.id ? null : i.id)} icon={<ClipboardCheck className="size-3.5" />}>Post-incident feedback</Action>
                   </div>
+
+                  {i.outcome && feedbackFor !== i.id && (
+                    <div className="mt-3 rounded-lg border border-success/30 bg-success/5 p-3 text-xs">
+                      <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
+                        <span>Clearance time <strong className="text-foreground">{i.actualDelayMin} min</strong></span>
+                        <span>Officers used <strong className="text-foreground">{i.actualOfficers}</strong></span>
+                        <span>Outcome <strong className="text-foreground">{i.outcome}</strong></span>
+                      </div>
+                      {i.lesson && <p className="mt-2 flex items-start gap-1.5 text-muted-foreground"><Brain className="mt-0.5 size-3.5 text-primary" /> {i.lesson}</p>}
+                    </div>
+                  )}
+
+                  {feedbackFor === i.id && (
+                    <IncidentFeedbackForm
+                      i={i}
+                      onSave={(patch) => {
+                        updateIncident(i.id, { ...patch, status: "Resolved" });
+                        setFeedbackFor(null);
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -211,6 +234,45 @@ function ReportForm({ onAdd }: { onAdd: (i: Incident) => void }) {
 
       <button onClick={submit} className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-critical px-4 py-3 text-sm font-bold text-primary-foreground shadow-glow transition hover:brightness-110 disabled:opacity-50">
         {done ? <><CheckCircle2 className="size-4" /> Reported</> : <><Siren className="size-4" /> File report</>}
+      </button>
+    </div>
+  );
+}
+
+function IncidentFeedbackForm({ i, onSave }: { i: Incident; onSave: (patch: Partial<Incident>) => void }) {
+  const [delay, setDelay] = useState(i.actualDelayMin ?? 30);
+  const [officers, setOfficers] = useState(i.actualOfficers ?? 2);
+  const [outcome, setOutcome] = useState<NonNullable<Incident["outcome"]>>(i.outcome ?? "Successful");
+  const [lesson, setLesson] = useState(i.lesson ?? "");
+
+  return (
+    <div className="mt-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+      <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+        <ClipboardCheck className="size-3.5" /> Record clearance metrics
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <FieldLabel label={`Clearance time · ${delay} min`}>
+          <input type="range" min={5} max={240} step={5} value={delay} onChange={(ev) => setDelay(+ev.target.value)} className="w-full accent-[var(--primary)]" />
+        </FieldLabel>
+        <FieldLabel label={`Officers deployed · ${officers}`}>
+          <input type="range" min={0} max={40} value={officers} onChange={(ev) => setOfficers(+ev.target.value)} className="w-full accent-[var(--primary)]" />
+        </FieldLabel>
+      </div>
+      <FieldLabel label="Response Outcome">
+        <div className="flex gap-2">
+          {(["Successful", "Partial", "Strained"] as const).map((o) => (
+            <button key={o} onClick={() => setOutcome(o)} className={`flex-1 rounded-lg border px-2 py-2 text-xs font-semibold transition ${outcome === o ? "border-primary bg-primary/15 text-primary" : "border-border bg-input/40 text-muted-foreground"}`}>{o}</button>
+          ))}
+        </div>
+      </FieldLabel>
+      <FieldLabel label="Field Notes / Lessons">
+        <textarea value={lesson} onChange={(ev) => setLesson(ev.target.value)} rows={2} placeholder="e.g. Needed 2 more barricades to block the service road." className={inputCls} />
+      </FieldLabel>
+      <button
+        onClick={() => onSave({ actualDelayMin: delay, actualOfficers: officers, outcome, lesson })}
+        className="mt-1 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-glow transition hover:brightness-110"
+      >
+        <CheckCircle2 className="size-4" /> Save feedback & mark resolved
       </button>
     </div>
   );

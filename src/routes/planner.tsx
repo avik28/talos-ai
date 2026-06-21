@@ -13,8 +13,8 @@ import { useEvents, uid, type PlannedEvent } from "@/lib/store";
 export const Route = createFileRoute("/planner")({
   head: () => ({
     meta: [
-      { title: "Event Planner — GridMind AI" },
-      { name: "description", content: "Schedule major events, track operational status, and capture post-event feedback to improve future GridMind AI predictions." },
+      { title: "Event Planner — VYUHIQ" },
+      { name: "description", content: "Schedule major events, track operational status, and capture post-event feedback to improve future VYUHIQ predictions." },
     ],
   }),
   component: PlannerPage,

@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as PlannerRouteImport } from './routes/planner'
 import { Route as IncidentsRouteImport } from './routes/incidents'
 import { Route as ForecastsRouteImport } from './routes/forecasts'
@@ -18,17 +17,11 @@ import { Route as DiversionsRouteImport } from './routes/diversions'
 import { Route as DigitaltwinRouteImport } from './routes/digitaltwin'
 import { Route as DeploymentRouteImport } from './routes/deployment'
 import { Route as AnalyticsRouteImport } from './routes/analytics'
-import { Route as AiAssistantRouteImport } from './routes/ai-assistant'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResourcesRoute = ResourcesRouteImport.update({
-  id: '/resources',
-  path: '/resources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlannerRoute = PlannerRouteImport.update({
@@ -66,11 +59,6 @@ const AnalyticsRoute = AnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AiAssistantRoute = AiAssistantRouteImport.update({
-  id: '/ai-assistant',
-  path: '/ai-assistant',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -79,7 +67,6 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/ai-assistant': typeof AiAssistantRoute
   '/analytics': typeof AnalyticsRoute
   '/deployment': typeof DeploymentRoute
   '/digitaltwin': typeof DigitaltwinRoute
@@ -87,12 +74,10 @@ export interface FileRoutesByFullPath {
   '/forecasts': typeof ForecastsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
-  '/resources': typeof ResourcesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ai-assistant': typeof AiAssistantRoute
   '/analytics': typeof AnalyticsRoute
   '/deployment': typeof DeploymentRoute
   '/digitaltwin': typeof DigitaltwinRoute
@@ -100,13 +85,11 @@ export interface FileRoutesByTo {
   '/forecasts': typeof ForecastsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
-  '/resources': typeof ResourcesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/ai-assistant': typeof AiAssistantRoute
   '/analytics': typeof AnalyticsRoute
   '/deployment': typeof DeploymentRoute
   '/digitaltwin': typeof DigitaltwinRoute
@@ -114,14 +97,12 @@ export interface FileRoutesById {
   '/forecasts': typeof ForecastsRoute
   '/incidents': typeof IncidentsRoute
   '/planner': typeof PlannerRoute
-  '/resources': typeof ResourcesRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/ai-assistant'
     | '/analytics'
     | '/deployment'
     | '/digitaltwin'
@@ -129,12 +110,10 @@ export interface FileRouteTypes {
     | '/forecasts'
     | '/incidents'
     | '/planner'
-    | '/resources'
     | '/sitemap.xml'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/ai-assistant'
     | '/analytics'
     | '/deployment'
     | '/digitaltwin'
@@ -142,12 +121,10 @@ export interface FileRouteTypes {
     | '/forecasts'
     | '/incidents'
     | '/planner'
-    | '/resources'
     | '/sitemap.xml'
   id:
     | '__root__'
     | '/'
-    | '/ai-assistant'
     | '/analytics'
     | '/deployment'
     | '/digitaltwin'
@@ -155,13 +132,11 @@ export interface FileRouteTypes {
     | '/forecasts'
     | '/incidents'
     | '/planner'
-    | '/resources'
     | '/sitemap.xml'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AiAssistantRoute: typeof AiAssistantRoute
   AnalyticsRoute: typeof AnalyticsRoute
   DeploymentRoute: typeof DeploymentRoute
   DigitaltwinRoute: typeof DigitaltwinRoute
@@ -169,7 +144,6 @@ export interface RootRouteChildren {
   ForecastsRoute: typeof ForecastsRoute
   IncidentsRoute: typeof IncidentsRoute
   PlannerRoute: typeof PlannerRoute
-  ResourcesRoute: typeof ResourcesRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
 }
 
@@ -180,13 +154,6 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/resources': {
-      id: '/resources'
-      path: '/resources'
-      fullPath: '/resources'
-      preLoaderRoute: typeof ResourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/planner': {
@@ -238,13 +205,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ai-assistant': {
-      id: '/ai-assistant'
-      path: '/ai-assistant'
-      fullPath: '/ai-assistant'
-      preLoaderRoute: typeof AiAssistantRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/': {
       id: '/'
       path: '/'
@@ -257,7 +217,6 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AiAssistantRoute: AiAssistantRoute,
   AnalyticsRoute: AnalyticsRoute,
   DeploymentRoute: DeploymentRoute,
   DigitaltwinRoute: DigitaltwinRoute,
@@ -265,7 +224,6 @@ const rootRouteChildren: RootRouteChildren = {
   ForecastsRoute: ForecastsRoute,
   IncidentsRoute: IncidentsRoute,
   PlannerRoute: PlannerRoute,
-  ResourcesRoute: ResourcesRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
 }
 export const routeTree = rootRouteImport

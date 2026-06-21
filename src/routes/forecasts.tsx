@@ -1,16 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, ReactNode } from "react";
 import { AppHeader } from "@/components/AppHeader";
-import { TrendingUp, Clock, AlertTriangle, CloudRain, ShieldAlert, BarChart2, Check, Crosshair, Gauge, Activity, MapPin, Users, Cone, Truck, Ambulance, Brain, Zap, History, Siren, ArrowRight, Megaphone, Sparkles, RotateCw, Copy, ChevronRight, SlidersHorizontal, TrendingDown, Minus } from "lucide-react";
-import { useEvents, useIncidents } from "@/lib/store";
+import { TrendingUp, Clock, AlertTriangle, CloudRain, ShieldAlert, BarChart2, Check, Crosshair, Gauge, Activity, MapPin, Users, Cone, Truck, Ambulance, Brain, Zap, History, Siren, ArrowRight, Megaphone, Sparkles, RotateCw, Copy, ChevronRight, SlidersHorizontal, TrendingDown, Minus, CalendarPlus } from "lucide-react";
+import { useEvents, useIncidents, Incident, PlannedEvent } from "@/lib/store";
 import { Prediction, PredictionInput, severityColor, buildActionPlan, fmtHour, predict } from "@/lib/gridmind";
+import { ALL_PLACES } from "@/lib/locations";
 import { useMemo } from "react";
 import { generateActionPlan } from "@/lib/actionplan.functions";
+import { predictImpactWithModel } from "@/lib/diversionEngine";
 
 export const Route = createFileRoute("/forecasts")({
   head: () => ({
     meta: [
-      { title: "AI Traffic Forecasting — GridMind AI" },
+      { title: "AI Traffic Forecasting — VYUHIQ" },
       {
         name: "description",
         content: "Forecast travel delays and incident clearance times using trained ML models.",
@@ -23,6 +25,22 @@ export const Route = createFileRoute("/forecasts")({
 function ForecastsPage() {
   const { incidents } = useIncidents();
   const { events } = useEvents();
+
+  const isEvent = (ctx: Incident | PlannedEvent | null): ctx is PlannedEvent => {
+    return ctx !== null && "type" in ctx;
+  };
+
+  const liveIncidents = useMemo(() => {
+    return incidents.filter((i) => i.status !== "Resolved");
+  }, [incidents]);
+
+  const activeEvents = useMemo(() => {
+    return events.filter((e) => e.status === "Scheduled" || e.status === "Active");
+  }, [events]);
+
+  const combinedContexts = useMemo(() => {
+    return [...liveIncidents, ...activeEvents].sort((a, b) => b.createdAt - a.createdAt);
+  }, [liveIncidents, activeEvents]);
 
   const [selectedIncidentId, setSelectedIncidentId] = useState<string>("manual");
   
@@ -52,7 +70,7 @@ function ForecastsPage() {
         setCause(inc.kind.toLowerCase().replace(" ", "_"));
         setPriority(inc.severity);
         setPlanned(false);
-        setAttendees(1000);
+        setAttendees(2000);
       } else {
         const ev = events.find(e => e.id === selectedIncidentId);
         if (ev) {
@@ -71,23 +89,22 @@ function ForecastsPage() {
   async function getPrediction() {
     setLoading(true);
     try {
-      const response = await fetch("/api/predict-impact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_type: "unplanned",
-          event_cause: cause,
-          corridor: corridor,
-          veh_type: "heavy_vehicle",
-          priority: priority,
-          zone: zone,
-          latitude: lat,
-          longitude: lng,
-        })
+      const date = new Date();
+      date.setHours(hour, 0, 0, 0);
+      const data = await predictImpactWithModel({
+        event_type: planned ? "planned" : "unplanned",
+        event_cause: cause,
+        corridor: corridor,
+        veh_type: "heavy_vehicle",
+        priority: priority,
+        zone: zone,
+        latitude: lat,
+        longitude: lng,
+        estimated_volume: attendees,
+        duration_hr: durationHr,
+        created_date: date.toISOString()
       });
       
-      if (!response.ok) throw new Error("Failed to fetch prediction");
-      const data = await response.json();
       setPrediction(data);
     } catch (e) {
       console.error(e);
@@ -107,7 +124,7 @@ function ForecastsPage() {
 
   useEffect(() => {
     getPrediction();
-  }, [cause, priority, lat, lng, corridor, zone]);
+  }, [cause, priority, lat, lng, corridor, zone, planned, attendees, durationHr, hour]);
 
   useEffect(() => {
     if (!prediction) {
@@ -164,7 +181,7 @@ function ForecastsPage() {
   return (
     <div className="min-h-screen grid-bg text-slate-900">
       <AppHeader />
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">
+      <main className="mx-auto max-w-[1600px] px-4 py-8 md:px-6">
         {/* Title Header with Gradient */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-800 to-purple-900 p-6 md:p-8 text-white shadow-xl mb-8">
           <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-white/10 blur-xl"></div>
@@ -184,129 +201,110 @@ function ForecastsPage() {
           </div>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-[380px_1fr]">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
           {/* Controls Panel */}
-          <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm">
+          <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm xl:row-span-2">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6 flex items-center gap-2">
               <BarChart2 className="h-4 w-4 text-primary" /> Parameters
             </h2>
 
             <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  Select Incident or Event
-                </label>
-                <select
-                  value={selectedIncidentId}
-                  onChange={(e) => setSelectedIncidentId(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-input/60 px-4 py-3 text-sm outline-none focus:border-primary transition"
-                >
-                  <option value="manual">-- Manual Entry --</option>
-                  <optgroup label="Active Incidents">
-                    {incidents.filter(i => i.status !== "Resolved").map(inc => (
-                      <option key={inc.id} value={inc.id}>{inc.kind} at {inc.location}</option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Planned Events">
-                    {events.map(ev => (
-                      <option key={ev.id} value={ev.id}>{ev.title}</option>
-                    ))}
-                  </optgroup>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  Event Cause
-                </label>
-                <select
-                  value={cause}
-                  onChange={(e) => setCause(e.target.value)}
-                  disabled={selectedIncidentId !== "manual"}
-                  className="w-full rounded-xl border border-border bg-input/60 px-4 py-3 text-sm outline-none focus:border-primary transition disabled:opacity-50"
-                >
-                  <option value="accident">Accident</option>
-                  <option value="vehicle_breakdown">Vehicle Breakdown</option>
-                  <option value="water_logging">Waterlogging</option>
-                  <option value="tree_fall">Tree Fall</option>
-                  <option value="public_event">Public Event</option>
-                  <option value="pot_holes">Potholes</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  Priority Level
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {["Low", "Medium", "High", "Critical"].map((p) => {
-                    const active = priority === p;
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPriority(p)}
-                        disabled={selectedIncidentId !== "manual"}
-                        className={`rounded-lg border px-2 py-2 text-xs font-semibold transition disabled:opacity-50 ${
-                          active
-                            ? "border-indigo-600 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400"
-                            : "border-border bg-input/40 text-muted-foreground hover:bg-input/60"
-                        }`}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Coordinates</span>
-                  <span className="font-semibold text-foreground">
-                    {lat.toFixed(4)}, {lng.toFixed(4)}
+              <div className="rounded-2xl border border-border bg-input/20 p-4 mb-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="size-4 text-critical" />
+                    <h2 className="text-xs font-bold uppercase tracking-wide">Active Targets & Events</h2>
+                  </div>
+                  <span className="rounded-md bg-critical/15 px-2 py-0.5 text-[10px] font-bold text-critical">
+                    {combinedContexts.length} active
                   </span>
                 </div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => { setLat(12.9736); setLng(77.6074); }}
-                    disabled={selectedIncidentId !== "manual"}
-                    className="rounded-lg border border-border bg-input/20 px-2 py-1.5 text-[10px] text-center hover:bg-input/40 transition disabled:opacity-50"
-                  >
-                    MG Road (CBD)
-                  </button>
-                  <button
-                    onClick={() => { setLat(13.0358); setLng(77.597); }}
-                    disabled={selectedIncidentId !== "manual"}
-                    className="rounded-lg border border-border bg-input/20 px-2 py-1.5 text-[10px] text-center hover:bg-input/40 transition disabled:opacity-50"
-                  >
-                    Hebbal Flyover
-                  </button>
-                </div>
+
+                {combinedContexts.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                    <p>No active incidents or events.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <div
+                      onClick={() => setSelectedIncidentId("manual")}
+                      className={`group rounded-xl border p-2.5 text-xs transition cursor-pointer ${selectedIncidentId === "manual"
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-input/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold flex items-center gap-1.5">
+                           -- Manual Entry --
+                        </span>
+                      </div>
+                    </div>
+                    {combinedContexts.map((item) => {
+                      const isSelected = item.id === selectedIncidentId;
+                      const isEv = isEvent(item);
+                      
+                      let title = "";
+                      let subtitle = "";
+                      let severityStr = "";
+                      let severityClass = "";
+
+                      if (isEv) {
+                        title = item.title;
+                        subtitle = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId || "";
+                        const severity = item.attendees >= 35000 ? "Critical" : item.attendees >= 15000 ? "High" : item.attendees >= 5000 ? "Medium" : "Low";
+                        severityStr = severity;
+                        severityClass = severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                          severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                          severity === "Medium" ? "border-info bg-info/10 text-info" :
+                          "border-success bg-success/10 text-success";
+                      } else {
+                        title = item.kind;
+                        subtitle = item.location;
+                        severityStr = item.severity;
+                        severityClass = item.severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                          item.severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                          item.severity === "Medium" ? "border-info bg-info/10 text-info" :
+                          "border-success bg-success/10 text-success";
+                      }
+
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setSelectedIncidentId(item.id)}
+                          className={`group rounded-xl border p-2.5 text-xs transition cursor-pointer ${isSelected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-input/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold flex items-center gap-1.5">
+                              {isEv ? (
+                                <CalendarPlus className="size-3.5 text-primary" />
+                              ) : (
+                                <AlertTriangle className="size-3.5 text-critical" />
+                              )}
+                              {title}
+                            </span>
+                            <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${severityClass}`}>
+                              {severityStr}
+                            </span>
+                          </div>
+                          <p className="text-[10px] mt-0.5 leading-normal">{subtitle}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
+
+
             </div>
 
-            {/* WHAT-IF SIMULATOR PARAMS */}
-            <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm mt-6">
-              <div className="mb-4 flex items-center gap-2">
-                <SlidersHorizontal className="h-5 w-5 text-indigo-500" />
-                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">What-If Simulator</h2>
-              </div>
-              <p className="text-xs text-muted-foreground mb-4">Scrub the inputs below to see delay and congestion react in real time.</p>
-              
-              <Slider label="Attendance" value={attendees} min={2000} max={60000} step={1000} display={attendees.toLocaleString()} onChange={setAttendees} icon={<Users className="size-3.5" />} />
-              <Slider label="Start hour" value={hour} min={0} max={23} step={1} display={fmtHour(hour)} onChange={setHour} icon={<Clock className="size-3.5" />} />
-              <Slider label="Duration" value={durationHr} min={1} max={8} step={1} display={`${durationHr} h`} onChange={setDurationHr} icon={<Clock className="size-3.5" />} />
-              
-              <div className="mt-4 flex gap-2">
-                <button onClick={() => setPlanned(true)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${planned ? "border-success/40 bg-success/10 text-success" : "border-border bg-input/40 text-muted-foreground"}`}>Planned</button>
-                <button onClick={() => setPlanned(false)} className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${!planned ? "border-warning/40 bg-warning/10 text-warning" : "border-border bg-input/40 text-muted-foreground"}`}>Unplanned</button>
-              </div>
-            </div>
+
           </div>
 
           {/* Results Panel */}
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-border panel-glass p-6 md:p-8 shadow-sm">
+          <div className="rounded-2xl border border-border panel-glass p-6 md:p-8 shadow-sm lg:col-span-2 xl:col-span-2">
               <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
                 ML Clearance Prediction
               </h2>
@@ -342,62 +340,9 @@ function ForecastsPage() {
               )}
             </div>
 
-            {/* What-If Simulator Outputs */}
-            {heuristicPrediction && (heuristicPrediction as any).rawSim && scenarioOutcome && predictionInput && (
-              <div className="space-y-6 mb-6">
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <DeltaCard label="Congestion score" unit="/100" icon={<Gauge className="size-4" />}
-                    base={predict({ ...predictionInput, attendees: 20000 }).score} now={(heuristicPrediction as any).rawSim.score} />
-                  <DeltaCard label="Predicted delay" unit="min" icon={<Clock className="size-4" />}
-                    base={predict({ ...predictionInput, attendees: 20000 }).delayMin} now={(heuristicPrediction as any).rawSim.delayMin} />
-                  <DeltaCard label="Affected radius" unit="km" icon={<MapPin className="size-4" />}
-                    base={predict({ ...predictionInput, attendees: 20000 }).radiusKm} now={(heuristicPrediction as any).rawSim.radiusKm} decimals={1} />
-                </div>
-
-                <div className="rounded-2xl border border-border panel-glass p-5">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div>
-                      <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Digital Twin actions</h2>
-                      <p className="text-xs text-muted-foreground">Simulate interventions and see recommendation-driven outcomes.</p>
-                    </div>
-                    <span className="rounded-full border border-border bg-input/50 px-3 py-1 text-[11px] uppercase text-muted-foreground">{scenarioOutcome.title}</span>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {SCENARIO_ACTIONS.map((action) => (
-                      <button key={action.key} type="button"
-                        onClick={() => setScenario(action.key)}
-                        className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-left text-sm transition ${scenario === action.key ? "border-primary bg-primary/10 text-foreground" : "border-border bg-input/30 text-muted-foreground"}`}>
-                        <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">{action.icon}</div>
-                        <div>
-                          <div className="font-semibold">{action.label}</div>
-                          <p className="text-[11px] text-muted-foreground">{action.description}</p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {scenarioOutcome.stats.map((stat: any) => (
-                      <div key={stat.label} className="rounded-2xl border border-border bg-input/30 p-4">
-                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{stat.label}</p>
-                        <p className="mt-2 text-xl font-bold">{stat.value}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 rounded-2xl border border-border bg-input/20 p-4">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Recommendation</p>
-                    <p className="mt-2 text-2xl font-bold">{scenarioOutcome.recommendation}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{scenarioOutcome.summary}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Impact Details card */}
             {prediction && (
-              <div className="grid gap-6 sm:grid-cols-2">
+              <>
                 <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm">
                   <div className="flex items-center gap-2 text-warning mb-3">
                     <AlertTriangle className="h-5 w-5" />
@@ -410,51 +355,26 @@ function ForecastsPage() {
                     {prediction.strike_issued ? <span className="text-critical font-bold">Strike Issued!</span> : "Clearance is within acceptable limits."}
                   </p>
                 </div>
-
-                <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm">
-                  <div className="flex items-center gap-2 text-info mb-3">
-                    <ShieldAlert className="h-5 w-5" />
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                      Predicted Resources
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    <div className="bg-input/20 p-2 text-center rounded-lg">
-                      <p className="text-2xl font-bold">{prediction.officers}</p>
-                      <p className="text-[10px] uppercase text-muted-foreground">Officers</p>
-                    </div>
-                    <div className="bg-input/20 p-2 text-center rounded-lg">
-                      <p className="text-2xl font-bold">{prediction.barricades}</p>
-                      <p className="text-[10px] uppercase text-muted-foreground">Barricades</p>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-center bg-input/20 p-2 rounded-lg">
-                    <p className="text-xl font-bold">{prediction.tow_trucks}</p>
-                    <p className="text-[10px] uppercase text-muted-foreground">Tow Trucks</p>
-                  </div>
-                </div>
-              </div>
+              </>
             )}
             {/* Extended AI Assessment Panels */}
             {heuristicPrediction && predictionInput && (
-              <div className="mt-8 space-y-6 border-t border-border pt-8">
-                <ImpactRow p={heuristicPrediction} />
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <ResourcePanel p={heuristicPrediction} />
-                  <ExplainPanel p={heuristicPrediction} />
+              <>
+                <div className="lg:col-span-2 xl:col-span-3">
+                  <ImpactRow p={heuristicPrediction} />
                 </div>
-                <div className="grid gap-6 lg:grid-cols-2">
-                  <ChainPanel p={heuristicPrediction} />
+                <div>
                   <SimilarPanel p={heuristicPrediction} />
                 </div>
-                <div className="grid gap-6 lg:grid-cols-2">
+                <div>
                   <DiversionPanel p={heuristicPrediction} />
+                </div>
+                <div className="md:col-span-2 lg:col-span-1 xl:col-span-2">
                   <ActionPlanPanel input={predictionInput} p={heuristicPrediction} />
                 </div>
-                <CitizenAlert input={predictionInput} p={heuristicPrediction} />
-              </div>
+
+              </>
             )}
-          </div>
         </div>
       </main>
     </div>
@@ -758,7 +678,7 @@ function CitizenAlert({ input, p }: { input: PredictionInput; p: Prediction }) {
             <p className="font-semibold text-success">{p.diversions[0].name.replace(/^Route \w+ · /, "")}</p>
           </div>
         </div>
-        <p className="mt-3 text-[10px] text-muted-foreground">— Bengaluru Traffic Police · GridMind AI</p>
+        <p className="mt-3 text-[10px] text-muted-foreground">— Bengaluru Traffic Police · VYUHIQ</p>
       </div>
     </Card>
   );

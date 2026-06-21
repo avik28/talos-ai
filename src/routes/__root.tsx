@@ -78,10 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "GridMind AI — Event-Aware Traffic Command Center" },
+      { title: "VYUHIQ — Strategic Traffic Intelligence & Resource Optimization Platform" },
       { name: "description", content: "AI traffic command center for Bengaluru: predict event congestion, recommend resources, generate diversions, and learn from past events." },
-      { name: "author", content: "GridMind AI" },
-      { property: "og:title", content: "GridMind AI — Traffic Command Center" },
+      { name: "author", content: "VYUHIQ" },
+      { property: "og:title", content: "VYUHIQ — Strategic Traffic Intelligence & Resource Optimization Platform" },
       { property: "og:description", content: "Predict congestion, recommend resources, and generate AI action plans for major events." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

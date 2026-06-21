@@ -4,7 +4,7 @@ import { UnifiedCommandCenter } from "@/components/UnifiedCommandCenter";
 export const Route = createFileRoute("/diversions")({
   head: () => ({
     meta: [
-      { title: "Dynamic Diversion Generator — GridMind AI" },
+      { title: "Dynamic Diversion Generator — VYUHIQ" },
       {
         name: "description",
         content:

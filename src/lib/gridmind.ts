@@ -299,10 +299,35 @@ function buildHistoricalSummary(input: PredictionInput, history?: { incidents?: 
   return { activeIncidentCount, relevantIncidentCount, stationCount: stations.length, planCount: plans.length, note, alerts };
 }
 
-export function predict(input: PredictionInput, history?: { incidents?: HistoricalIncident[]; stations?: HistoricalStation[]; plans?: HistoricalPlan[]; }): Prediction {
+export function predict(input: PredictionInput, history?: { incidents?: HistoricalIncident[]; stations?: HistoricalStation[]; plans?: HistoricalPlan[]; }, isCalibrating = false): Prediction {
   const venue = input.location ?? VENUES.find((v) => v.id === input.venueId) ?? VENUES[0];
   const isPeak = (input.hour >= 8 && input.hour <= 11) || (input.hour >= 16 && input.hour <= 20);
-  const typeF = TYPE_FACTOR[input.type] ?? 0.85;
+  let typeF = TYPE_FACTOR[input.type] ?? 0.85;
+
+  // --- Dynamic Feedback Learning Loop ---
+  let learnedAdjustment = 0;
+  if (!isCalibrating && typeof window !== "undefined") {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem("gridmind.events.v1") || "[]");
+      const past = stored.filter((e: any) => e.status === "Completed" && e.actualDelayMin != null && e.type === input.type);
+      if (past.length > 0) {
+        let totalError = 0;
+        past.forEach((e: any) => {
+           // Base model calculation without recursion
+           const pDelay = predict(e, history, true).delayMin;
+           totalError += (e.actualDelayMin - pDelay);
+        });
+        const avgError = totalError / past.length;
+        // 1 typeF = 12 score points = ~8.4 minutes of delay.
+        // Adjust typeF to close the gap, using a learning rate of 0.3.
+        learnedAdjustment = (avgError / 8.4) * 0.3;
+        typeF = Math.max(0.1, Math.min(2.5, typeF + learnedAdjustment));
+      }
+    } catch (e) {
+      console.warn("Event Intelligence Memory learning skip:", e);
+    }
+  }
+
   const attendF = Math.min(input.attendees / 40000, 1);
 
   // Weighted congestion score
@@ -390,7 +415,7 @@ export function predict(input: PredictionInput, history?: { incidents?: Historic
     { label: `${input.attendees.toLocaleString()} attendees`, weight: Math.round(wAtt) },
     { label: `${venue.name} base load`, weight: Math.round(wVenue) },
     { label: isPeak ? "Peak-hour window" : "Off-peak window", weight: Math.round(wPeak) },
-    { label: `${input.type} profile`, weight: Math.round(wType) },
+    { label: `${input.type} profile` + (Math.abs(learnedAdjustment) > 0.01 ? " (Auto-Calibrated)" : ""), weight: Math.round(wType) },
     { label: input.planned ? "Planned event" : "Unplanned event", weight: Math.round(wUnplanned) },
   ].sort((a, b) => b.weight - a.weight);
 

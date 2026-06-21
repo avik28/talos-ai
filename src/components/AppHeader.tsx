@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 
 const links = [
   { to: "/", label: "Command & Diversions" },
-  { to: "/resources", label: "Resources" },
   { to: "/deployment", label: "Deployment" },
   { to: "/planner", label: "Planner" },
   { to: "/incidents", label: "Incidents" },
   { to: "/forecasts", label: "Forecasts" },
   { to: "/analytics", label: "Analytics" },
-  { to: "/ai-assistant", label: "GridMind AI" },
 ] as const;
 
 export function AppHeader() {
@@ -53,9 +51,9 @@ export function AppHeader() {
           </div>
           <div className="hidden sm:block">
             <h1 className="text-base font-extrabold leading-tight tracking-tight">
-              GridMind <span className="text-primary">AI</span>
+              VYUHIQ
             </h1>
-            <p className="text-[11px] text-muted-foreground">Event-Aware Traffic Command Center</p>
+            <p className="text-[11px] text-muted-foreground">Strategic Traffic Intelligence & Resource Optimization Platform</p>
           </div>
         </Link>
 
