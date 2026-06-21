@@ -6,7 +6,11 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { resolve } from "path";
-import netlify from "@netlify/vite-plugin-tanstack-start";
+
+// Only load the Netlify adapter when building on Netlify
+const netlifyPlugin = process.env.NETLIFY
+  ? [(await import("@netlify/vite-plugin-tanstack-start")).default()]
+  : [];
 
 export default defineConfig({
   tanstackStart: {
@@ -16,7 +20,7 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [netlify()],
+    plugins: [...netlifyPlugin],
     server: {
       proxy: {
         "/api": {
