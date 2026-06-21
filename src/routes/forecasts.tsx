@@ -200,7 +200,7 @@ function ForecastsPage() {
           </div>
         </div>
 
-        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 items-start">
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {/* Controls Panel */}
           <div className="rounded-2xl border border-border panel-glass p-6 shadow-sm xl:row-span-2">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-6 flex items-center gap-2">
@@ -359,17 +359,17 @@ function ForecastsPage() {
             {/* Extended AI Assessment Panels */}
             {heuristicPrediction && predictionInput && (
               <>
-                <div className="lg:col-span-2 xl:col-span-3">
-                  <ImpactRow p={heuristicPrediction} />
+                <div className="lg:col-span-2 xl:col-span-3 h-full">
+                  <ImpactRow p={heuristicPrediction} className="h-full" />
                 </div>
-                <div>
-                  <SimilarPanel p={heuristicPrediction} />
+                <div className="h-full">
+                  <SimilarPanel p={heuristicPrediction} className="h-full" />
                 </div>
-                <div>
-                  <DiversionPanel p={heuristicPrediction} />
+                <div className="h-full">
+                  <DiversionPanel p={heuristicPrediction} className="h-full" />
                 </div>
-                <div className="md:col-span-2 lg:col-span-1 xl:col-span-2">
-                  <ActionPlanPanel input={predictionInput} p={heuristicPrediction} />
+                <div className="md:col-span-2 lg:col-span-1 xl:col-span-2 h-full">
+                  <ActionPlanPanel input={predictionInput} p={heuristicPrediction} className="h-full" />
                 </div>
 
               </>
@@ -382,17 +382,19 @@ function ForecastsPage() {
 
 function Card({ title, icon, children, className = "" }: { title: string; icon: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-border panel-glass p-5 ${className}`}>
-      <div className="mb-4 flex items-center gap-2">
+    <div className={`rounded-2xl border border-border panel-glass p-5 flex flex-col ${className}`}>
+      <div className="mb-4 flex items-center gap-2 shrink-0">
         <span className="text-primary">{icon}</span>
         <h3 className="text-sm font-bold uppercase tracking-wide">{title}</h3>
       </div>
-      {children}
+      <div className="flex-grow flex flex-col min-h-0">
+        {children}
+      </div>
     </div>
   );
 }
 
-function ImpactRow({ p }: { p: Prediction }) {
+function ImpactRow({ p, className = "" }: { p: Prediction; className?: string }) {
   const sev = severityColor(p.severity);
   const stats = [
     { icon: <Gauge className="size-4" />, label: "Congestion Score", value: `${p.score}`, sub: "/ 100" },
@@ -401,7 +403,7 @@ function ImpactRow({ p }: { p: Prediction }) {
     { icon: <TrendingUp className="size-4" />, label: "Recovery Time", value: `${p.recoveryHr}`, sub: "h" },
   ];
   return (
-    <Card title="AI Congestion Impact" icon={<Activity className="size-4" />}>
+    <Card title="AI Congestion Impact" icon={<Activity className="size-4" />} className={className}>
       <div className="mb-5 flex items-center justify-between rounded-xl border p-4" style={{ borderColor: `${sev}66`, background: `${sev}1a` }}>
         <div>
           <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Severity assessment</p>
@@ -520,18 +522,18 @@ function ChainPanel({ p }: { p: Prediction }) {
   );
 }
 
-function SimilarPanel({ p }: { p: Prediction }) {
+function SimilarPanel({ p, className = "" }: { p: Prediction; className?: string }) {
   const s = p.similar;
   return (
-    <Card title="Event Similarity AI" icon={<History className="size-4" />}>
-      <div className="mb-3 flex items-center justify-between rounded-xl border border-accent/40 bg-accent/10 px-4 py-3">
+    <Card title="Event Similarity AI" icon={<History className="size-4" />} className={className}>
+      <div className="mb-3 flex items-center justify-between rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 shrink-0">
         <div>
           <p className="text-xs text-muted-foreground">Closest historical match</p>
           <p className="text-sm font-bold">{s.event.id} · {s.event.type}</p>
         </div>
         <span className="text-mono text-2xl font-extrabold text-accent">{(s.match * 100).toFixed(0)}%</span>
       </div>
-      <dl className="grid grid-cols-2 gap-2 text-sm">
+      <dl className="grid grid-cols-2 gap-2 text-sm flex-grow">
         <Row k="Venue" v={s.event.venue} />
         <Row k="Attendees" v={s.event.attendees.toLocaleString()} />
         <Row k="Actual delay" v={`${s.event.delayMin} min`} />
@@ -539,7 +541,7 @@ function SimilarPanel({ p }: { p: Prediction }) {
         <Row k="Outcome" v={s.event.outcome} />
         <Row k="Time" v={fmtHour(s.event.hour)} />
       </dl>
-      <div className="mt-3 rounded-lg border border-border bg-input/20 p-3">
+      <div className="mt-3 rounded-lg border border-border bg-input/20 p-3 shrink-0">
         <p className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary"><Brain className="size-3.5" /> Lesson learned</p>
         <p className="text-xs leading-relaxed text-muted-foreground">{s.event.lesson}</p>
       </div>
@@ -556,11 +558,11 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function DiversionPanel({ p }: { p: Prediction }) {
+function DiversionPanel({ p, className = "" }: { p: Prediction; className?: string }) {
   return (
-    <Card title="Diversion & Emergency Corridor" icon={<Siren className="size-4" />}>
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Suggested diversions</p>
-      <div className="space-y-2">
+    <Card title="Diversion & Emergency Corridor" icon={<Siren className="size-4" />} className={className}>
+      <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground shrink-0">Suggested diversions</p>
+      <div className="space-y-2 flex-grow">
         {p.diversions.map((d) => (
           <div key={d.name} className="flex items-center justify-between rounded-lg border border-border bg-input/20 px-3 py-2.5">
             <span className="flex items-center gap-2 text-sm">
@@ -570,7 +572,7 @@ function DiversionPanel({ p }: { p: Prediction }) {
           </div>
         ))}
       </div>
-      <div className="mt-4 rounded-xl border border-info/40 bg-info/10 p-4">
+      <div className="mt-4 rounded-xl border border-info/40 bg-info/10 p-4 shrink-0">
         <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-info"><Ambulance className="size-4" /> Emergency green corridor</p>
         <div className="flex items-center justify-center gap-4">
           <div className="text-center">
@@ -588,7 +590,7 @@ function DiversionPanel({ p }: { p: Prediction }) {
   );
 }
 
-function ActionPlanPanel({ input, p }: { input: PredictionInput; p: Prediction }) {
+function ActionPlanPanel({ input, p, className = "" }: { input: PredictionInput; p: Prediction; className?: string }) {
   const heuristic = useMemo(() => buildActionPlan(input, p), [input, p]);
   const [aiPlan, setAiPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -625,8 +627,8 @@ function ActionPlanPanel({ input, p }: { input: PredictionInput; p: Prediction }
   }
 
   return (
-    <Card title="AI Action Plan" icon={<Megaphone className="size-4" />}>
-      <div className="mb-3 flex items-center gap-2">
+    <Card title="AI Action Plan" icon={<Megaphone className="size-4" />} className={className}>
+      <div className="mb-3 flex items-center gap-2 shrink-0">
         <button
           onClick={generate}
           disabled={loading}
@@ -645,12 +647,12 @@ function ActionPlanPanel({ input, p }: { input: PredictionInput; p: Prediction }
         </span>
       </div>
       {err && (
-        <div className="mb-3 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] font-medium text-warning">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] font-medium text-warning shrink-0">
           <AlertTriangle className="size-3.5" /> {err}
         </div>
       )}
-      <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90">{plan}</pre>
-      <button onClick={copy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-primary/50 bg-primary/15 px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/25">
+      <pre className="flex-grow overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-background/60 p-3 text-mono text-[11px] leading-relaxed text-foreground/90 min-h-[160px]">{plan}</pre>
+      <button onClick={copy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-primary/50 bg-primary/15 px-4 py-2.5 text-sm font-semibold text-primary transition hover:bg-primary/25 shrink-0">
         {copied ? <><Check className="size-4" /> Copied to clipboard</> : <><Copy className="size-4" /> Copy action plan</>}
       </button>
     </Card>

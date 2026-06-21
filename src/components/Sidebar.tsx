@@ -21,7 +21,7 @@ const links = [
 
 export function Sidebar({ expanded, onToggle }: SidebarProps) {
   const [now, setNow] = useState<Date | null>(null);
-  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -32,6 +32,8 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     if (savedTheme) {
       setTheme(savedTheme);
+    } else {
+      setTheme("light");
     }
     setMounted(true);
 

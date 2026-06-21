@@ -1428,28 +1428,39 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       <main className="mx-auto w-[90%] md:w-[85%] pb-24 pt-6">
 
         {/* Page Title & Navigation Banner */}
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
-              <Layers className="size-5 animate-pulse" />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold tracking-tight">Command & Diversion Center</h1>
-              <p className="text-xs text-muted-foreground">
-                Tactical Sandbox driven by live incident dispatching, with integrated AI operational assessment.
+        <div className="relative overflow-hidden rounded-3xl border border-border panel-glass p-8 mb-6 grid-bg">
+          {/* Subtle gradient glowing blobs */}
+          <div className="absolute -right-24 -top-24 size-[320px] rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+          <div className="absolute right-1/4 -bottom-16 size-[250px] rounded-full bg-sky-500/10 blur-3xl pointer-events-none" />
+          
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex-1 min-w-0">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/50 px-3 py-1 text-[10px] font-extrabold tracking-widest text-muted-foreground uppercase mb-4">
+                <span className="flex h-1.5 w-1.5 relative mr-0.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-success"></span>
+                </span>
+                <span>Event-Driven Congestion Intelligence</span>
+              </div>
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight max-w-3xl">
+                Forecast, visualize and <span className="text-amber-500">res</span><span className="text-sky-500">pond</span> to traffic events before they choke the city.
+              </h1>
+              <p className="text-xs text-muted-foreground max-w-2xl mt-2 font-medium">
+                Gridlock-PR predicts the impact of closures, crowds, and weather, suggesting optimal resource dispatches and dynamic diversions to mitigate urban gridlock.
               </p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={resetSimulation}
-              className="flex items-center gap-1.5 rounded-lg border border-border bg-input/40 px-3 py-1.5 text-xs font-semibold text-muted-foreground transition hover:text-foreground"
-            >
-              <Undo className="size-3.5" /> Reset Map
-            </button>
-            <span className="flex items-center gap-1.5 rounded-lg border border-success/40 bg-success/10 px-3 py-1.5 text-xs font-bold text-success">
-              <span className="size-2 rounded-full bg-success pulse-dot" /> SYSTEM LIVE
-            </span>
+            
+            <div className="flex flex-row md:flex-col gap-2 shrink-0 md:items-end">
+              <button
+                onClick={resetSimulation}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-background/80 hover:bg-background px-4 py-2 text-xs font-bold text-foreground transition shadow-sm cursor-pointer"
+              >
+                <Undo className="size-3.5" /> Reset Map
+              </button>
+              <span className="flex items-center gap-1.5 rounded-lg border border-success/40 bg-success/10 px-4 py-2 text-xs font-bold text-success w-fit shadow-sm">
+                <span className="size-2 rounded-full bg-success pulse-dot" /> SYSTEM LIVE
+              </span>
+            </div>
           </div>
         </div>
 
