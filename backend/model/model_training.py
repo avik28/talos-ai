@@ -66,7 +66,7 @@ def engineer_features(df):
 
     # --- Text Engineering ---
     keywords = ['tyre', 'clutch', 'brake', 'engine', 'breakdown', 'burst']
-    df['reason_breakdown'] = df['reason_breakdown'].astype(str).str.lower()
+    df['reason_breakdown'] = df['reason_breakdown'].fillna("").astype(str).str.lower()
     df['has_mech_failure'] = df['reason_breakdown'].apply(
         lambda x: 1 if any(k in x for k in keywords) else 0
     )

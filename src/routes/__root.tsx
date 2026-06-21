@@ -7,8 +7,9 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Toaster } from "@/components/ui/sonner";
+import { Sidebar } from "../components/Sidebar";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -135,11 +136,25 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sidebar_expanded") !== "false";
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_expanded", String(sidebarExpanded));
+  }, [sidebarExpanded]);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <div className="min-h-screen flex bg-background text-foreground">
+        <Sidebar expanded={sidebarExpanded} onToggle={() => setSidebarExpanded(!sidebarExpanded)} />
+        <div className="flex-1 min-w-0 min-h-screen flex flex-col">
+          <Outlet />
+        </div>
+      </div>
       <Toaster />
     </QueryClientProvider>
   );

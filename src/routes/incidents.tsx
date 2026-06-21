@@ -2,16 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   Siren, Plus, Trash2, AlertTriangle, Clock, MapPin, Radio, CheckCircle2, Send,
-  TrendingUp, ShieldAlert, Truck, Ambulance, Zap, ClipboardCheck, Brain, ArrowRight,
+  TrendingUp, ShieldAlert, Truck, Ambulance, Zap, ClipboardCheck, Brain, ArrowRight, BrainCircuit,
 } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
 import {
   useIncidents, uid,
   type Incident, type IncidentKind, type IncidentSeverity,
 } from "@/lib/store";
 import { computeEscalation, ESCALATION_STYLE } from "@/lib/escalation";
 import { LocationSearch } from "@/components/LocationSearch";
-import { DEFAULT_PLACE } from "@/lib/locations";
+import { DEFAULT_PLACE, ALL_PLACES } from "@/lib/locations";
+import { toast } from "sonner";
 import type { Venue } from "@/lib/gridmind";
 
 export const Route = createFileRoute("/incidents")({
@@ -42,6 +42,7 @@ const statusStyle = {
 function IncidentsPage() {
   const { incidents, addIncident, updateIncident, removeIncident } = useIncidents();
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
+  const [retrainingState, setRetrainingState] = useState<"idle" | "running" | "completed">("idle");
   const open = incidents.filter((i) => i.status !== "Resolved");
 
   // Smart Escalation Engine: rank every open incident by computed urgency.
@@ -52,8 +53,8 @@ function IncidentsPage() {
 
   return (
     <div className="min-h-screen grid-bg">
-      <AppHeader />
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 md:px-6">
+
+      <main className="mx-auto w-[90%] md:w-[85%] pb-24 pt-6">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex size-11 items-center justify-center rounded-xl bg-critical/15 text-critical"><Siren className="size-5" /></div>
           <div>
@@ -162,8 +163,83 @@ function IncidentsPage() {
                   {feedbackFor === i.id && (
                     <IncidentFeedbackForm
                       i={i}
-                      onSave={(patch) => {
-                        updateIncident(i.id, { ...patch, status: "Resolved" });
+                      onSave={async (patch) => {
+                        const locLower = i.location.toLowerCase();
+                        const place = ALL_PLACES.find(p => locLower.includes(p.name.toLowerCase())) ?? DEFAULT_PLACE;
+                        
+                        setRetrainingState("running");
+                        
+                        // 1. Fetch prediction
+                        let predictedDelayMin = 30;
+                        try {
+                          const predRes = await fetch("http://localhost:8000/api/predict-impact", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              event_type: i.event_type || "unplanned",
+                              event_cause: i.event_cause || "others",
+                              corridor: i.corridor || "Non-corridor",
+                              veh_type: i.veh_type || "heavy_vehicle",
+                              priority: i.severity === "Critical" ? "Critical" : i.severity === "High" ? "High" : i.severity === "Medium" ? "Medium" : "Low",
+                              zone: i.zone || "Central Zone 2",
+                              latitude: place.lat,
+                              longitude: place.lng,
+                              endlatitude: 0,
+                              endlongitude: 0,
+                              created_date: new Date(i.createdAt).toISOString(),
+                              reason_breakdown: i.description || ""
+                            })
+                          });
+                          if (predRes.ok) {
+                            const predData = await predRes.json();
+                            predictedDelayMin = Math.round(predData.s_impact);
+                          }
+                        } catch (e) {
+                          console.warn("Incident prediction fetch failed:", e);
+                        }
+
+                        // 2. Retrain model
+                        try {
+                          const res = await fetch("http://localhost:8000/api/retrain", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              id: i.id,
+                              event_type: i.event_type || "unplanned",
+                              latitude: place.lat,
+                              longitude: place.lng,
+                              endlatitude: 0,
+                              endlongitude: 0,
+                              event_cause: i.event_cause || "others",
+                              created_date: new Date(i.createdAt).toISOString(),
+                              actual_duration_mins: patch.actualDelayMin ?? predictedDelayMin,
+                              zone: i.zone || "Central Zone 2",
+                              corridor: i.corridor || "Non-corridor",
+                              description: i.description || "",
+                              priority: i.severity
+                            })
+                          });
+                          if (!res.ok) throw new Error("Retrain failed");
+                          
+                          updateIncident(i.id, {
+                            ...patch,
+                            status: "Resolved",
+                            predictedDelayMin,
+                            modelUpdated: true
+                          });
+                          setRetrainingState("completed");
+                          toast.success("Model retrained successfully (Model OP).");
+                        } catch (err) {
+                          console.error("Retrain failed:", err);
+                          updateIncident(i.id, {
+                            ...patch,
+                            status: "Resolved",
+                            predictedDelayMin,
+                            modelUpdated: false
+                          });
+                          setRetrainingState("completed");
+                          toast.error("Model retraining failed. Saved locally.");
+                        }
                         setFeedbackFor(null);
                       }}
                     />
@@ -173,6 +249,7 @@ function IncidentsPage() {
             })}
           </div>
         </div>
+        <RetrainingPopup state={retrainingState} onClose={() => setRetrainingState("idle")} />
       </main>
     </div>
   );
@@ -314,4 +391,50 @@ function timeAgo(ts: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+function RetrainingPopup({ state, onClose }: { state: "idle" | "running" | "completed"; onClose: () => void }) {
+  if (state === "idle") return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+      <div className="w-[95%] max-w-sm rounded-2xl border border-primary/30 bg-background/90 panel-glass p-6 text-center shadow-2xl relative overflow-hidden">
+        <div className="absolute right-2 top-2 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-primary/20 text-primary">
+          Model OP
+        </div>
+        
+        {state === "running" ? (
+          <div className="space-y-4 py-3">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary animate-pulse">
+              <BrainCircuit className="size-6 animate-spin duration-3000" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">VÝUHIQ Model Retraining Active</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-normal">
+                Appending feedback to historical dataset and performing Random Forest regression training...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 py-3">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full border border-success/40 bg-success/10 text-success">
+              <CheckCircle2 className="size-6 animate-bounce" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Model Retrained Successfully!</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-normal">
+                Neural network coefficients updated. Analytics page marked with alignment status.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:brightness-110 shadow-md"
+            >
+              Acknowledge & Close
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

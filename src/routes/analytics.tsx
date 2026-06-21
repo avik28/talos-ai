@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { AppHeader } from "@/components/AppHeader";
+
 import {
   BarChart,
   Bar,
@@ -56,8 +56,8 @@ function AnalyticsPage() {
   const resolvedIncidents = incidents.filter((i) => i.status === "Resolved" && i.outcome != null);
   return (
     <div className="min-h-screen grid-bg text-slate-900">
-      <AppHeader />
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+
+      <main className="mx-auto w-[90%] md:w-[85%] py-8">
         {/* Header Section */}
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -208,7 +208,14 @@ function AnalyticsPage() {
                   <div key={event.id} className="rounded-2xl border border-border panel-glass p-5 shadow-sm">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="text-sm font-bold text-foreground">{event.title}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-foreground">{event.title}</h3>
+                          {event.modelUpdated && (
+                            <span className="inline-flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-bold text-green-500 border border-green-500/30">
+                              ✓ Model Aligned (Model OP)
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground">{event.date} · {event.location?.name ?? event.venueId}</p>
                       </div>
                       <span className="rounded-full bg-input/50 px-2 py-1 text-[10px] font-semibold">
@@ -282,7 +289,14 @@ function AnalyticsPage() {
                   <div key={incident.id} className="rounded-2xl border border-border panel-glass p-5 shadow-sm">
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <h3 className="text-sm font-bold text-foreground">{incident.kind}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-foreground">{incident.kind}</h3>
+                          {incident.modelUpdated && (
+                            <span className="inline-flex items-center gap-1 rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-bold text-green-500 border border-green-500/30">
+                              ✓ Model Aligned (Model OP)
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground">{incident.location} · {incident.reporter}</p>
                       </div>
                       <span className="rounded-full bg-input/50 px-2 py-1 text-[10px] font-semibold">

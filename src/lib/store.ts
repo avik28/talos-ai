@@ -22,6 +22,8 @@ export interface PlannedEvent {
   actualOfficers?: number;
   outcome?: "Successful" | "Partial" | "Strained";
   lesson?: string;
+  predictedDelayMin?: number;
+  modelUpdated?: boolean;
 }
 
 export type IncidentKind =
@@ -49,6 +51,8 @@ export interface Incident {
   actualOfficers?: number;
   outcome?: "Successful" | "Partial" | "Strained";
   lesson?: string;
+  predictedDelayMin?: number;
+  modelUpdated?: boolean;
 }
 
 const EVENTS_KEY = "gridmind.events.v1";

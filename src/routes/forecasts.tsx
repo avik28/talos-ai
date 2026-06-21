@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, ReactNode } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { TrendingUp, Clock, AlertTriangle, CloudRain, ShieldAlert, BarChart2, Check, Crosshair, Gauge, Activity, MapPin, Users, Cone, Truck, Ambulance, Brain, Zap, History, Siren, ArrowRight, Megaphone, Sparkles, RotateCw, Copy, ChevronRight, SlidersHorizontal, TrendingDown, Minus, CalendarPlus } from "lucide-react";
 import { useEvents, useIncidents, Incident, PlannedEvent } from "@/lib/store";
 import { Prediction, PredictionInput, severityColor, buildActionPlan, fmtHour, predict } from "@/lib/gridmind";
@@ -180,8 +179,8 @@ function ForecastsPage() {
 
   return (
     <div className="min-h-screen grid-bg text-slate-900">
-      <AppHeader />
-      <main className="mx-auto max-w-[1600px] px-4 py-8 md:px-6">
+
+      <main className="mx-auto w-[90%] md:w-[85%] py-8">
         {/* Title Header with Gradient */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-700 via-indigo-800 to-purple-900 p-6 md:p-8 text-white shadow-xl mb-8">
           <div className="absolute top-0 right-0 -mt-4 -mr-4 h-32 w-32 rounded-full bg-white/10 blur-xl"></div>

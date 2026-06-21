@@ -3,12 +3,12 @@ import { Brain, CalendarClock, Siren, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const links = [
-  { to: "/", label: "Command & Diversions" },
-  { to: "/deployment", label: "Deployment" },
-  { to: "/planner", label: "Planner" },
-  { to: "/incidents", label: "Incidents" },
-  { to: "/forecasts", label: "Forecasts" },
-  { to: "/analytics", label: "Analytics" },
+  { to: "/", label: "Dynamic Diversion Generator" },
+  { to: "/deployment", label: "Intelligent Deployment Engineer" },
+  { to: "/planner", label: "Event Planner" },
+  { to: "/incidents", label: "Incident Reporting" },
+  { to: "/forecasts", label: "Event Impact Forecaster" },
+  { to: "/analytics", label: "Post Event Learning" },
 ] as const;
 
 export function AppHeader() {
@@ -44,7 +44,7 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-[600] border-b border-border panel-glass">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-6">
+      <div className="mx-auto flex w-[90%] md:w-[85%] items-center justify-between gap-3 py-3">
         <Link to="/" className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-glow">
             <Brain className="size-5" />

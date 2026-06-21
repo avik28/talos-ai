@@ -7,7 +7,6 @@ import {
   Terminal, HelpCircle, Layers, Undo, Moon, Sun, Send, Info
 } from "lucide-react";
 import { toast } from "sonner";
-import { AppHeader } from "@/components/AppHeader";
 
 // GridMind libraries
 import {
@@ -1425,8 +1424,8 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
   // ==========================================
   return (
     <div className="min-h-screen grid-bg">
-      <AppHeader />
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 md:px-6">
+
+      <main className="mx-auto w-[90%] md:w-[85%] pb-24 pt-6">
 
         {/* Page Title & Navigation Banner */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
@@ -1471,113 +1470,116 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         )}
 
         {/* MAIN PANEL GRID */}
-        <section className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <section className="grid gap-6 grid-cols-1 lg:grid-cols-[20%_20%_60%]">
 
-          {/* SIDEBAR (LEFT): Live Incident List & Simulation Status */}
-          <div className="space-y-6">
-
+          {/* Column 1: Active Targets & Events */}
+          <div>
             {/* Live Field Incidents & Selector */}
-            <div className="rounded-2xl border border-border panel-glass p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="size-4 text-critical" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Active Targets & Events</h2>
+            <div className="rounded-2xl border border-border panel-glass p-5 h-[460px] flex flex-col justify-between">
+              <div className="flex flex-col flex-1 min-h-0">
+                <div className="mb-4 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="size-4 text-critical" />
+                    <h2 className="text-sm font-bold uppercase tracking-wide">Active Targets & Events</h2>
+                  </div>
+                  <span className="rounded-md bg-critical/15 px-2 py-0.5 text-[10px] font-bold text-critical">
+                    {combinedContexts.length} active
+                  </span>
                 </div>
-                <span className="rounded-md bg-critical/15 px-2 py-0.5 text-[10px] font-bold text-critical">
-                  {combinedContexts.length} active
-                </span>
-              </div>
 
-              {combinedContexts.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                  <p className="mb-3">No active live incidents or planned events. Log them in the Planner or Incidents tab.</p>
-                  <button
-                    onClick={loadDemoIncidents}
-                    className="mx-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-110"
-                  >
-                    <Sparkles className="size-3.5" /> Load Demo Incidents
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {combinedContexts.map((item) => {
-                    const isSelected = item.id === selectedIncidentId;
-                    const isEv = isEvent(item);
-                    
-                    let title = "";
-                    let subtitle = "";
-                    let severityStr = "";
-                    let severityClass = "";
-                    let reporterOrType = "";
+                {combinedContexts.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center rounded-xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                    <p className="mb-3">No active live incidents or planned events. Log them in the Planner or Incidents tab.</p>
+                    <button
+                      onClick={loadDemoIncidents}
+                      className="mx-auto flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground transition hover:brightness-110"
+                    >
+                      <Sparkles className="size-3.5" /> Load Demo Incidents
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
+                    {combinedContexts.map((item) => {
+                      const isSelected = item.id === selectedIncidentId;
+                      const isEv = isEvent(item);
+                      
+                      let title = "";
+                      let subtitle = "";
+                      let severityStr = "";
+                      let severityClass = "";
+                      let reporterOrType = "";
 
-                    if (isEv) {
-                      title = item.title;
-                      subtitle = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId;
-                      const severity = item.attendees >= 35000 ? "Critical" : item.attendees >= 15000 ? "High" : item.attendees >= 5000 ? "Medium" : "Low";
-                      severityStr = severity;
-                      severityClass = severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
-                        severity === "High" ? "border-warning bg-warning/10 text-warning" :
-                        severity === "Medium" ? "border-info bg-info/10 text-info" :
-                        "border-success bg-success/10 text-success";
-                      reporterOrType = `Planned · ${item.type}`;
-                    } else {
-                      title = item.kind;
-                      subtitle = item.location;
-                      severityStr = item.severity;
-                      severityClass = item.severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
-                        item.severity === "High" ? "border-warning bg-warning/10 text-warning" :
-                        item.severity === "Medium" ? "border-info bg-info/10 text-info" :
-                        "border-success bg-success/10 text-success";
-                      reporterOrType = `Reporter: ${item.reporter}`;
-                    }
+                      if (isEv) {
+                        title = item.title;
+                        subtitle = item.location?.name || ALL_PLACES.find(p => p.id === item.venueId)?.name || item.venueId;
+                        const severity = item.attendees >= 35000 ? "Critical" : item.attendees >= 15000 ? "High" : item.attendees >= 5000 ? "Medium" : "Low";
+                        severityStr = severity;
+                        severityClass = severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                          severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                          severity === "Medium" ? "border-info bg-info/10 text-info" :
+                          "border-success bg-success/10 text-success";
+                        reporterOrType = `Planned · ${item.type}`;
+                      } else {
+                        title = item.kind;
+                        subtitle = item.location;
+                        severityStr = item.severity;
+                        severityClass = item.severity === "Critical" ? "border-critical bg-critical/10 text-critical" :
+                          item.severity === "High" ? "border-warning bg-warning/10 text-warning" :
+                          item.severity === "Medium" ? "border-info bg-info/10 text-info" :
+                          "border-success bg-success/10 text-success";
+                        reporterOrType = `Reporter: ${item.reporter}`;
+                      }
 
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedIncidentId(item.id)}
-                        className={`group rounded-xl border p-2.5 text-xs transition cursor-pointer ${isSelected
-                            ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-input/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                          }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold flex items-center gap-1.5">
-                            {isEv ? (
-                              <CalendarPlus className="size-3.5 text-primary" />
-                            ) : (
-                              <AlertTriangle className="size-3.5 text-critical" />
-                            )}
-                            {title}
-                          </span>
-                          <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${severityClass}`}>
-                            {severityStr}
-                          </span>
-                        </div>
-                        <p className="text-[10px] mt-0.5 leading-normal">{subtitle}</p>
-                        <div className="mt-2 flex items-center justify-between text-[9px]">
-                          <span>{reporterOrType}</span>
-                          {isSelected ? (
-                            <span className="text-primary font-bold flex items-center gap-0.5">
-                              <span className="size-1.5 rounded-full bg-primary animate-pulse" /> Simulating
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => setSelectedIncidentId(item.id)}
+                          className={`group rounded-xl border p-2.5 text-xs transition cursor-pointer ${isSelected
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-input/20 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold flex items-center gap-1.5">
+                              {isEv ? (
+                                <CalendarPlus className="size-3.5 text-primary" />
+                              ) : (
+                                <AlertTriangle className="size-3.5 text-critical" />
+                              )}
+                              {title}
                             </span>
-                          ) : (
-                            <span className="text-muted-foreground">Queue</span>
-                          )}
+                            <span className={`rounded-md border px-1.5 py-0.5 text-[8px] font-bold uppercase ${severityClass}`}>
+                              {severityStr}
+                            </span>
+                          </div>
+                          <p className="text-[10px] mt-0.5 leading-normal">{subtitle}</p>
+                          <div className="mt-2 flex items-center justify-between text-[9px]">
+                            <span>{reporterOrType}</span>
+                            {isSelected ? (
+                              <span className="text-primary font-bold flex items-center gap-0.5">
+                                <span className="size-1.5 rounded-full bg-primary animate-pulse" /> Simulating
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Queue</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
+          </div>
 
-            {/* Route Stack Rotation & Strikes */}
-            <div className="rounded-2xl border border-border panel-glass p-5 flex flex-col justify-between text-xs">
-              <div>
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          {/* Column 2: Route Stack Rotation & Strikes */}
+          <div>
+            <div className="rounded-2xl border border-border panel-glass p-5 h-[460px] flex flex-col justify-between text-xs">
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
                   <div className="flex items-center gap-2">
                     <RotateCw className="size-4 text-primary animate-spin-slow" />
-                    <h2 className="text-xs font-bold uppercase tracking-wide">Route Stack Rotation & Strikes</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-wide">Route Stack</h2>
                   </div>
                   <button
                     onClick={triggerLiveStrike}
@@ -1587,19 +1589,19 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                   </button>
                 </div>
 
-                <div className="rounded-xl border border-border bg-input/30 p-3">
-                  <div className="flex items-center justify-between border-b border-border pb-1.5 mb-2 text-[10px]">
+                <div className="rounded-xl border border-border bg-input/30 p-3 flex-1 flex flex-col min-h-0">
+                  <div className="flex items-center justify-between border-b border-border pb-1.5 mb-2 text-[10px] shrink-0">
                     <span className="font-bold">ACTIVE STACK ({activeStackType.toUpperCase()}) FOR {selectedCorridor.name.toUpperCase()}</span>
                     <span className="text-muted-foreground font-semibold">Hierarchy</span>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 overflow-y-auto flex-1 pr-1 min-h-0">
                     {selectedCorridor.stacks[activeStackType].map((route, idx) => {
                       const isPrimary = idx === 0;
                       const isSecondary = idx === 1;
 
                       return (
-                        <div key={route.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-background/50 p-2 text-[11px]">
+                        <div key={route.id} className="flex flex-col justify-between gap-2 rounded-lg border border-border bg-background/50 p-2 text-[11px]">
                           <div>
                             <div className="flex items-center gap-1.5">
                               <span className={`text-[9px] font-bold uppercase rounded px-1 py-0.2 ${isPrimary ? "bg-success/20 text-success border border-success/40" :
@@ -1608,24 +1610,24 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                                 }`}>
                                 {isPrimary ? "Primary" : isSecondary ? "Secondary" : "Tertiary"}
                               </span>
-                              <span className="font-semibold text-foreground">{route.name}</span>
+                              <span className="font-semibold text-foreground truncate block max-w-[120px]">{route.name}</span>
                             </div>
-                            <div className="mt-0.5 flex gap-3 text-[9px] text-muted-foreground">
-                              <span>Distance: {route.distanceKm} km</span>
+                            <div className="mt-0.5 flex gap-2 text-[9px] text-muted-foreground">
+                              <span>{route.distanceKm} km</span>
                               <span>Junctions: {route.crossStreets}</span>
                               <span>Base: {route.baseTimeMin}m</span>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              <span className="text-[8px] uppercase text-muted-foreground block">Strikes</span>
+                          <div className="flex items-center justify-between border-t border-border/30 pt-1 mt-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] uppercase text-muted-foreground">Strikes:</span>
                               <span className={`text-[10px] font-extrabold ${route.strikes >= 3 ? "text-critical" : route.strikes > 0 ? "text-warning" : "text-muted-foreground"}`}>
                                 {route.strikes}/3
                               </span>
                             </div>
-                            <div>
-                              <span className="text-[8px] uppercase text-muted-foreground block">Status</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[8px] uppercase text-muted-foreground">Status:</span>
                               <span className={`text-[9px] font-bold uppercase rounded px-1 py-0.2 ${route.status === "Active" ? "bg-success/15 text-success" :
                                   route.status === "Penalty Box" ? "bg-critical/15 text-critical" :
                                     "bg-warning/15 text-warning"
@@ -1641,7 +1643,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                 </div>
               </div>
 
-              <div className="mt-3 grid gap-2 grid-cols-2 text-[9px] leading-normal text-muted-foreground border-t border-border/40 pt-2.5">
+              <div className="mt-3 grid gap-2 grid-cols-2 text-[9px] leading-normal text-muted-foreground border-t border-border/40 pt-2.5 shrink-0">
                 <div className="rounded-lg border border-critical/20 bg-critical/5 p-1.5">
                   <span className="font-bold text-critical block">PENALTY BOX</span>
                   3-strike routes cooldown for 30 rounds.
@@ -1652,55 +1654,15 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                 </div>
               </div>
             </div>
-
-            {/* What-If Console */}
-            <div className="rounded-2xl border border-border panel-glass p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Terminal className="size-4 text-success" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">What-If Console</h2>
-                </div>
-                <span title="Simulate variables by typing questions.">
-                  <HelpCircle className="size-4 text-muted-foreground cursor-pointer" />
-                </span>
-              </div>
-
-              <div className="mb-4 h-36 overflow-y-auto rounded-lg border border-border bg-background/80 p-3 text-mono text-[11px] leading-relaxed flex flex-col gap-2">
-                {consoleMessages.map((msg, i) => (
-                  <div key={i} className={msg.sender === "user" ? "text-primary" : "text-success"}>
-                    <span className="text-muted-foreground font-semibold">{msg.sender === "user" ? "BTP_OFFICER> " : "GRIDMIND_AI> "}</span>
-                    {msg.text}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. What if I close MG Road?"
-                  value={commandInput}
-                  onChange={(e) => setCommandInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && runQuery(commandInput)}
-                  className="flex-1 rounded-lg border border-border bg-input/60 px-3 py-2 text-xs outline-none focus:border-primary text-mono"
-                />
-                <button
-                  onClick={() => runQuery(commandInput)}
-                  className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition hover:brightness-110"
-                >
-                  <Send className="size-4" />
-                </button>
-              </div>
-            </div>
-
           </div>
 
-          {/* SPATIAL TACTICAL MAP (RIGHT) */}
-          <div className="relative min-h-[460px] overflow-hidden rounded-2xl border border-border panel-glass flex flex-col">
+          {/* Column 3: Spatial Tactical Map */}
+          <div className="relative h-[460px] overflow-hidden rounded-2xl border border-border panel-glass flex flex-col">
             <div className="absolute left-4 top-4 z-[500] flex items-center gap-2 rounded-lg border border-border bg-background/80 px-3 py-1.5 text-xs font-semibold backdrop-blur">
               <CircleDot className="size-3.5 text-accent animate-pulse" /> Live Tactical Map & Route Analysis
             </div>
 
-            <div ref={elRef} className="h-[460px] w-full" />
+            <div ref={elRef} className="h-full w-full" />
 
             <div className="absolute bottom-3 left-3 z-[500] flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-border bg-background/80 px-3 py-2 text-[9px] backdrop-blur leading-none">
               <span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-success" /> Recommended detour</span>
@@ -1716,365 +1678,417 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
         </section>
 
         {/* WORKSPACE DETAIL GRID (BELOW MAP) */}
-        <section className="mt-8 grid gap-6 md:grid-cols-2">
+        <section className="mt-8 grid gap-6 grid-cols-1 lg:grid-cols-12">
 
-          {/* Column 1: Dynamic Event Intake */}
-          {selectedIncident ? (
-            <div className="rounded-2xl border border-border panel-glass p-5 text-xs flex flex-col justify-between">
-              <div>
-                <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
-                  <Brain className="size-4 text-primary animate-pulse" />
-                  <h3 className="font-bold uppercase tracking-wide">Dynamic Event Intake</h3>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {/* Intake Type Selector */}
-                  <div>
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Intake Type</label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setIntakeType("unplanned")}
-                        className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${intakeType === "unplanned"
-                            ? "bg-primary/20 text-primary border-primary/40 font-bold"
-                            : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        Unplanned (Incident)
-                      </button>
-                      <button
-                        onClick={() => setIntakeType("planned")}
-                        className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${intakeType === "planned"
-                            ? "bg-primary/20 text-primary border-primary/40 font-bold"
-                            : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        Planned (Event)
-                      </button>
+          {/* Column 1: What-If Console & Projection Output (Merged Card) */}
+          <div className="lg:col-span-7 rounded-2xl border border-border panel-glass overflow-hidden flex flex-col">
+            <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border h-full">
+              
+              {/* Left Side: What-If Console */}
+              <div className="p-5 flex flex-col justify-between h-full min-h-[380px]">
+                <div className="flex-1 flex flex-col">
+                  <div className="mb-3 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                      <Terminal className="size-4 text-success" />
+                      <h2 className="text-sm font-bold uppercase tracking-wide">What-If Console</h2>
                     </div>
-                  </div>
-
-                  {/* Corridor Selector */}
-                  <div>
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Corridor</label>
-                    <select
-                      value={corridorName}
-                      onChange={(e) => {
-                        setCorridorName(e.target.value);
-                        setSelectedCorridorId(e.target.value);
-                      }}
-                      className="w-full rounded-md border border-border bg-input/40 px-2 py-1 text-xs outline-none text-foreground font-semibold"
-                    >
-                      <option value="incident_corridor">Incident Corridor (Dynamic)</option>
-                      <option value="mg_road">MG Road Corridor</option>
-                      <option value="hebbal">Hebbal Flyover Corridor</option>
-                      <option value="orr">Outer Ring Road Corridor</option>
-                    </select>
-                  </div>
-
-                  {/* Condition Fields */}
-                  {intakeType === "unplanned" ? (
-                    <>
-                      {/* Event Cause */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
-                        <select
-                          value={eventCause}
-                          onChange={(e) => setEventCause(e.target.value)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
-                        >
-                          <option value="accident">Accident</option>
-                          <option value="vehicle_breakdown">Vehicle Breakdown</option>
-                          <option value="water_logging">Water Logging / Flooding</option>
-                          <option value="tree_fall">Tree Fall</option>
-                          <option value="pot_holes">Potholes / Road Damage</option>
-                          <option value="others">Others</option>
-                        </select>
-                      </div>
-
-                      {/* Vehicle Type */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Vehicle Type</label>
-                        <select
-                          value={vehType}
-                          onChange={(e) => setVehType(e.target.value)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
-                        >
-                          <option value="private_car">Private Car / SUV</option>
-                          <option value="bmtc_bus">BMTC Bus</option>
-                          <option value="ksrtc_bus">KSRTC Bus</option>
-                          <option value="private_bus">Private Bus</option>
-                          <option value="lcv">Light Commercial Vehicle (LCV)</option>
-                          <option value="heavy_vehicle">Heavy Vehicle (HGV/Truck)</option>
-                          <option value="none">None / No Vehicle</option>
-                        </select>
-                      </div>
-
-                      {/* Priority Level */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Priority / Severity</label>
-                        <select
-                          value={priorityLevel}
-                          onChange={(e) => setPriorityLevel(e.target.value)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
-                        >
-                          <option value="Low">Low</option>
-                          <option value="Medium">Medium</option>
-                          <option value="High">High</option>
-                        </select>
-                      </div>
-
-                      {/* Reason Description Text */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Incident Details</label>
-                        <input
-                          type="text"
-                          value={reasonText}
-                          onChange={(e) => setReasonText(e.target.value)}
-                          placeholder="e.g. engine stall, tyres burst, brake failure"
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* Event Cause */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
-                        <select
-                          value={eventCause}
-                          onChange={(e) => setEventCause(e.target.value)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
-                        >
-                          <option value="public_event">Public Event (Sports/Concerts)</option>
-                          <option value="others">VIP Movement / Rally</option>
-                        </select>
-                      </div>
-
-                      {/* Estimated Volume Vest */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Estimated Volume (V_est)</label>
-                        <input
-                          type="number"
-                          value={estimatedVolume}
-                          onChange={(e) => setEstimatedVolume(parseInt(e.target.value) || 0)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
-                        />
-                      </div>
-
-                      {/* Network Capacity Cnet */}
-                      <div>
-                        <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Network Capacity (C_network)</label>
-                        <input
-                          type="number"
-                          value={networkCapacity}
-                          onChange={(e) => setNetworkCapacity(parseInt(e.target.value) || 0)}
-                          className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
-                        />
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Simulated Clearance Audit Slider */}
-                <div className="border-t border-border pt-3 mt-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="text-[10px] uppercase font-semibold text-muted-foreground">Actual Clearance Time</label>
-                    <span className="text-xs font-bold font-mono text-primary">{actualClearanceTime} mins</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="5"
-                    max="180"
-                    step="5"
-                    value={actualClearanceTime}
-                    onChange={(e) => setActualClearanceTime(parseInt(e.target.value))}
-                    className="w-full accent-primary cursor-pointer"
-                  />
-                  <span className="text-[9px] text-muted-foreground block mt-1 leading-tight">
-                    Adjust to test if clearance breaches the strike threshold of {(modelOutputs ? modelOutputs.strike_threshold : 0).toFixed(1)} mins.
-                  </span>
-                </div>
-              </div>
-
-              {/* Assessment Confirmation Button */}
-              <button
-                onClick={() => {
-                  setAssessmentTrigger(prev => prev + 1);
-                  toast.success("AI Assessment triggered! Running predictive inferences...");
-                }}
-                className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2.5 text-xs font-bold text-primary-foreground shadow-glow transition hover:brightness-110 mt-4"
-              >
-                <Brain className="size-4 animate-pulse" /> Run AI Assessment & Generate Detours
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center h-full min-h-[300px] panel-glass">
-              <Brain className="size-8 text-muted-foreground/40 mb-2" />
-              <p>Please select an active incident to view or edit the intake parameters.</p>
-            </div>
-          )}
-
-          {/* Column 2: Tactical Resource Recommendations & Projection Output */}
-          <div className="space-y-6">
-
-            {/* ML Telemetry & Resource Recommendations */}
-            <div className="rounded-2xl border border-border panel-glass p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldAlert className="size-4 text-primary" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">ML Telemetry & Resource Matrix</h2>
-                </div>
-                {modelLoading && (
-                  <span className="text-[10px] text-primary animate-pulse font-semibold">Updating...</span>
-                )}
-              </div>
-
-              {/* Real-time Telemetry Section */}
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
-                  <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1 flex items-center gap-1">
-                    {"Expected Resolution ($S_{impact}$)"}
-                  </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-bold font-mono text-foreground">
-                      {modelOutputs ? modelOutputs.s_impact.toFixed(1) : "---"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">mins</span>
-                  </div>
-                  {modelOutputs && (
-                    <div className="absolute right-2 top-2">
-                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
-                        Model OP
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
-                  <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1">
-                    Demotion Threshold (1.25x)
-                  </span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-bold font-mono text-warning">
-                      {modelOutputs ? modelOutputs.strike_threshold.toFixed(1) : "---"}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">mins</span>
-                  </div>
-                  {modelOutputs && (
-                    <div className="absolute right-2 top-2">
-                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
-                        Model OP
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Proximity Conflicts warnings box */}
-              {diversionWarnings.length > 0 && (
-                <div className="mb-4 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5 text-warning">
-                      <AlertTriangle className="size-4 animate-bounce" />
-                      <span className="font-bold uppercase tracking-wider text-[10px]">Multi-Incident Proximity Conflict</span>
-                    </div>
-                    <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
-                      Model OP
+                    <span title="Simulate variables by typing questions.">
+                      <HelpCircle className="size-4 text-muted-foreground cursor-pointer" />
                     </span>
                   </div>
-                  <ul className="space-y-1 text-muted-foreground text-[10px] list-disc list-inside">
-                    {diversionWarnings.map((warn, i) => (
-                      <li key={i}>{warn}</li>
+
+                  <div className="flex-1 min-h-[220px] mb-4 overflow-y-auto rounded-lg border border-border bg-background/80 p-3 text-mono text-[11px] leading-relaxed flex flex-col gap-2">
+                    {consoleMessages.map((msg, i) => (
+                      <div key={i} className={msg.sender === "user" ? "text-primary" : "text-success"}>
+                        <span className="text-muted-foreground font-semibold">{msg.sender === "user" ? "BTP_OFFICER> " : "GRIDMIND_AI> "}</span>
+                        {msg.text}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
-              )}
 
-              {/* Resource Dispatch Matrix Section */}
-              <div className="border-t border-border/60 pt-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
-                    Resource Dispatch Matrix
-                  </span>
-                  {modelOutputs && (
-                    <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
-                      Model OP
-                    </span>
+                <div className="flex gap-2 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="e.g. What if I close MG Road?"
+                    value={commandInput}
+                    onChange={(e) => setCommandInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && runQuery(commandInput)}
+                    className="flex-1 rounded-lg border border-border bg-input/60 px-3 py-2 text-xs outline-none focus:border-primary text-mono"
+                  />
+                  <button
+                    onClick={() => runQuery(commandInput)}
+                    className="rounded-lg bg-primary px-3 py-2 text-primary-foreground transition hover:brightness-110"
+                  >
+                    <Send className="size-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Side: Projection Output */}
+              <div className="p-5 flex flex-col justify-between h-full min-h-[380px]">
+                <div className="flex-1 flex flex-col justify-between h-full">
+                  <div>
+                    <div className="mb-3 flex items-center gap-2">
+                      <Activity className="size-4 text-accent" />
+                      <h2 className="text-sm font-bold uppercase tracking-wide">Projection Output</h2>
+                    </div>
+
+                    {queryResponse ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-lg border border-success/30 bg-success/5 p-2">
+                            <span className="text-[9px] uppercase text-muted-foreground block">Congestion Reduction</span>
+                            <p className="text-lg font-extrabold text-success">
+                              ↓ {Math.max(0, queryResponse.congestionBefore - queryResponse.congestionAfter)}%
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-success/30 bg-success/5 p-2">
+                            <span className="text-[9px] uppercase text-muted-foreground block">Travel Time Saved</span>
+                            <p className="text-lg font-extrabold text-success">
+                              ↓ {Math.max(0, queryResponse.delayBefore - queryResponse.delayAfter)} min
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Cascading Road Spills</span>
+                          <div className="mt-1 space-y-1 text-[11px]">
+                            {queryResponse.spilloverImpact.slice(0, 2).map((spill, idx) => (
+                              <div key={idx} className="flex justify-between items-center">
+                                <span>{spill.road}</span>
+                                <span className={spill.delta > 0 ? "text-critical font-bold" : "text-success font-bold"}>
+                                  {spill.delta > 0 ? `+${spill.delta}%` : `${spill.delta}%`}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border bg-input/10 p-5 text-center text-xs text-muted-foreground my-8 flex flex-col items-center justify-center">
+                        <Sparkles className="mx-auto mb-1 size-5 text-muted-foreground/60" />
+                        Enter queries in the What-If console to view expected congestion changes.
+                      </div>
+                    )}
+                  </div>
+                  
+                  {queryResponse && (
+                    <p className="mt-2 text-[9px] text-muted-foreground leading-normal border-t border-border pt-1">
+                      <Info className="inline size-3 mr-1" /> {queryResponse.description}
+                    </p>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                    <Cone className="mx-auto mb-1 size-5 text-primary" />
-                    <p className="text-lg font-bold text-mono">{resources.barricades}</p>
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Barricades</span>
-                  </div>
-                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                    <ShieldAlert className="mx-auto mb-1 size-5 text-primary" />
-                    <p className="text-lg font-bold text-mono">{resources.officers}</p>
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Personnel</span>
-                  </div>
-                  <div className="rounded-xl border border-border bg-input/30 p-2.5">
-                    <Truck className="mx-auto mb-1 size-5 text-primary" />
-                    <p className="text-lg font-bold text-mono">{resources.towTrucks}</p>
-                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tow Trucks</span>
-                  </div>
-                </div>
               </div>
-            </div>
 
-            {/* Projection Output */}
-            <div className="rounded-2xl border border-border panel-glass p-5 min-h-[178px] flex flex-col justify-between">
-              <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <Activity className="size-4 text-accent" />
-                  <h2 className="text-sm font-bold uppercase tracking-wide">Projection Output</h2>
+            </div>
+          </div>
+
+          {/* Column 2: Dynamic Event & ML Telemetry */}
+          <div className="lg:col-span-5 space-y-6 flex flex-col justify-between">
+            {/* Dynamic Event Intake */}
+            {selectedIncident ? (
+              <div className="rounded-2xl border border-border panel-glass p-5 text-xs flex flex-col justify-between">
+                <div>
+                  <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                    <Brain className="size-4 text-primary animate-pulse" />
+                    <h3 className="font-bold uppercase tracking-wide">Dynamic Event Intake</h3>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Intake Type Selector */}
+                    <div>
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Intake Type</label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setIntakeType("unplanned")}
+                          className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${intakeType === "unplanned"
+                              ? "bg-primary/20 text-primary border-primary/40 font-bold"
+                              : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                          Unplanned (Incident)
+                        </button>
+                        <button
+                          onClick={() => setIntakeType("planned")}
+                          className={`flex-1 py-1 px-2 rounded-md border text-center transition font-semibold text-[10px] uppercase ${intakeType === "planned"
+                              ? "bg-primary/20 text-primary border-primary/40 font-bold"
+                              : "bg-input/20 border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                        >
+                          Planned (Event)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Corridor Selector */}
+                    <div>
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Corridor</label>
+                      <select
+                        value={corridorName}
+                        onChange={(e) => {
+                          setCorridorName(e.target.value);
+                          setSelectedCorridorId(e.target.value);
+                        }}
+                        className="w-full rounded-md border border-border bg-input/40 px-2 py-1 text-xs outline-none text-foreground font-semibold"
+                      >
+                        <option value="incident_corridor">Incident Corridor (Dynamic)</option>
+                        <option value="mg_road">MG Road Corridor</option>
+                        <option value="hebbal">Hebbal Flyover Corridor</option>
+                        <option value="orr">Outer Ring Road Corridor</option>
+                      </select>
+                    </div>
+
+                    {/* Condition Fields */}
+                    {intakeType === "unplanned" ? (
+                      <>
+                        {/* Event Cause */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
+                          <select
+                            value={eventCause}
+                            onChange={(e) => setEventCause(e.target.value)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                          >
+                            <option value="accident">Accident</option>
+                            <option value="vehicle_breakdown">Vehicle Breakdown</option>
+                            <option value="water_logging">Water Logging / Flooding</option>
+                            <option value="tree_fall">Tree Fall</option>
+                            <option value="pot_holes">Potholes / Road Damage</option>
+                            <option value="others">Others</option>
+                          </select>
+                        </div>
+
+                        {/* Vehicle Type */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Vehicle Type</label>
+                          <select
+                            value={vehType}
+                            onChange={(e) => setVehType(e.target.value)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                          >
+                            <option value="private_car">Private Car / SUV</option>
+                            <option value="bmtc_bus">BMTC Bus</option>
+                            <option value="ksrtc_bus">KSRTC Bus</option>
+                            <option value="private_bus">Private Bus</option>
+                            <option value="lcv">Light Commercial Vehicle (LCV)</option>
+                            <option value="heavy_vehicle">Heavy Vehicle (HGV/Truck)</option>
+                            <option value="none">None / No Vehicle</option>
+                          </select>
+                        </div>
+
+                        {/* Priority Level */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Priority / Severity</label>
+                          <select
+                            value={priorityLevel}
+                            onChange={(e) => setPriorityLevel(e.target.value)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                          >
+                            <option value="Low">Low</option>
+                            <option value="Medium">Medium</option>
+                            <option value="High">High</option>
+                          </select>
+                        </div>
+
+                        {/* Reason Description Text */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Incident Details</label>
+                          <input
+                            type="text"
+                            value={reasonText}
+                            onChange={(e) => setReasonText(e.target.value)}
+                            placeholder="e.g. engine stall, tyres burst, brake failure"
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Event Cause */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Event Cause</label>
+                          <select
+                            value={eventCause}
+                            onChange={(e) => setEventCause(e.target.value)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground"
+                          >
+                            <option value="public_event">Public Event (Sports/Concerts)</option>
+                            <option value="others">VIP Movement / Rally</option>
+                          </select>
+                        </div>
+
+                        {/* Estimated Volume Vest */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Estimated Volume (V_est)</label>
+                          <input
+                            type="number"
+                            value={estimatedVolume}
+                            onChange={(e) => setEstimatedVolume(parseInt(e.target.value) || 0)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                          />
+                        </div>
+
+                        {/* Network Capacity Cnet */}
+                        <div>
+                          <label className="text-[10px] uppercase font-semibold text-muted-foreground block mb-1">Network Capacity (C_network)</label>
+                          <input
+                            type="number"
+                            value={networkCapacity}
+                            onChange={(e) => setNetworkCapacity(parseInt(e.target.value) || 0)}
+                            className="w-full rounded-md border border-border bg-input/40 px-2 py-1.5 text-xs outline-none text-foreground font-mono"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Simulated Clearance Audit Slider */}
+                  <div className="border-t border-border pt-3 mt-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] uppercase font-semibold text-muted-foreground">Actual Clearance Time</label>
+                      <span className="text-xs font-bold font-mono text-primary">{actualClearanceTime} mins</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="180"
+                      step="5"
+                      value={actualClearanceTime}
+                      onChange={(e) => setActualClearanceTime(parseInt(e.target.value))}
+                      className="w-full accent-primary cursor-pointer"
+                    />
+                    <span className="text-[9px] text-muted-foreground block mt-1 leading-tight">
+                      Adjust to test if clearance breaches the strike threshold of {(modelOutputs ? modelOutputs.strike_threshold : 0).toFixed(1)} mins.
+                    </span>
+                  </div>
                 </div>
 
-                {queryResponse ? (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-lg border border-success/30 bg-success/5 p-2">
-                        <span className="text-[9px] uppercase text-muted-foreground block">Congestion Reduction</span>
-                        <p className="text-lg font-extrabold text-success">
-                          ↓ {Math.max(0, queryResponse.congestionBefore - queryResponse.congestionAfter)}%
-                        </p>
-                      </div>
-                      <div className="rounded-lg border border-success/30 bg-success/5 p-2">
-                        <span className="text-[9px] uppercase text-muted-foreground block">Travel Time Saved</span>
-                        <p className="text-lg font-extrabold text-success">
-                          ↓ {Math.max(0, queryResponse.delayBefore - queryResponse.delayAfter)} min
-                        </p>
-                      </div>
-                    </div>
+                {/* Assessment Confirmation Button */}
+                <button
+                  onClick={() => {
+                    setAssessmentTrigger(prev => prev + 1);
+                    toast.success("AI Assessment triggered! Running predictive inferences...");
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-xs font-bold text-primary-foreground shadow-glow transition hover:brightness-110 mt-4"
+                >
+                  <Brain className="size-4 animate-pulse" /> Run AI Assessment & Generate Detours
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border p-8 text-center text-xs text-muted-foreground flex flex-col items-center justify-center h-full min-h-[250px] panel-glass">
+                <Brain className="size-8 text-muted-foreground/40 mb-2" />
+                <p>Please select an active incident to view or edit the intake parameters.</p>
+              </div>
+            )}
 
-                    <div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Cascading Road Spills</span>
-                      <div className="mt-1 space-y-1 text-[11px]">
-                        {queryResponse.spilloverImpact.slice(0, 2).map((spill, idx) => (
-                          <div key={idx} className="flex justify-between items-center">
-                            <span>{spill.road}</span>
-                            <span className={spill.delta > 0 ? "text-critical font-bold" : "text-success font-bold"}>
-                              {spill.delta > 0 ? `+${spill.delta}%` : `${spill.delta}%`}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            {/* ML Telemetry & Resource recommendations */}
+            <div className="rounded-2xl border border-border panel-glass p-5 flex flex-col justify-between">
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="size-4 text-primary" />
+                    <h2 className="text-sm font-bold uppercase tracking-wide">ML Telemetry & Resource Matrix</h2>
                   </div>
-                ) : (
-                  <div className="rounded-xl border border-dashed border-border bg-input/10 p-5 text-center text-xs text-muted-foreground">
-                    <Sparkles className="mx-auto mb-1 size-5 text-muted-foreground/60" />
-                    Enter queries in the What-If console to view expected congestion changes.
+                  {modelLoading && (
+                    <span className="text-[10px] text-primary animate-pulse font-semibold">Updating...</span>
+                  )}
+                </div>
+
+                {/* Real-time Telemetry Section */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
+                    <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1 flex items-center gap-1">
+                      {"Expected Resolution ($S_{impact}$)"}
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold font-mono text-foreground">
+                        {modelOutputs ? modelOutputs.s_impact.toFixed(1) : "---"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">mins</span>
+                    </div>
+                    {modelOutputs && (
+                      <div className="absolute right-2 top-2">
+                        <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
+                          Model OP
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-input/30 p-3 relative overflow-hidden">
+                    <span className="text-[9px] uppercase font-bold tracking-wide text-muted-foreground block mb-1">
+                      Demotion Threshold (1.25x)
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold font-mono text-warning">
+                        {modelOutputs ? modelOutputs.strike_threshold.toFixed(1) : "---"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">mins</span>
+                    </div>
+                    {modelOutputs && (
+                      <div className="absolute right-2 top-2">
+                        <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wide">
+                          Model OP
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Proximity Conflicts warnings box */}
+                {diversionWarnings.length > 0 && (
+                  <div className="mb-4 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 text-warning">
+                        <AlertTriangle className="size-4 animate-bounce" />
+                        <span className="font-bold uppercase tracking-wider text-[10px]">Multi-Incident Proximity Conflict</span>
+                      </div>
+                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
+                        Model OP
+                      </span>
+                    </div>
+                    <ul className="space-y-1 text-muted-foreground text-[10px] list-disc list-inside">
+                      {diversionWarnings.map((warn, i) => (
+                        <li key={i}>{warn}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
-              </div>
-              {queryResponse && (
-                <p className="mt-2 text-[9px] text-muted-foreground leading-normal border-t border-border pt-1">
-                  <Info className="inline size-3 mr-1" /> {queryResponse.description}
-                </p>
-              )}
-            </div>
 
+                {/* Resource Dispatch Matrix Section */}
+                <div className="border-t border-border/60 pt-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
+                      Resource Dispatch Matrix
+                    </span>
+                    {modelOutputs && (
+                      <span className="rounded bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 text-[7px] font-extrabold text-purple-300 uppercase tracking-wider">
+                        Model OP
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                      <Cone className="mx-auto mb-1 size-5 text-primary" />
+                      <p className="text-lg font-bold text-mono">{resources.barricades}</p>
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Barricades</span>
+                    </div>
+                    <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                      <ShieldAlert className="mx-auto mb-1 size-5 text-primary" />
+                      <p className="text-lg font-bold text-mono">{resources.officers}</p>
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Personnel</span>
+                    </div>
+                    <div className="rounded-xl border border-border bg-input/30 p-2.5">
+                      <Truck className="mx-auto mb-1 size-5 text-primary" />
+                      <p className="text-lg font-bold text-mono">{resources.towTrucks}</p>
+                      <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Tow Trucks</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
         </section>
 
 

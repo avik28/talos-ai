@@ -1212,6 +1212,112 @@ async def get_dispatch_plan(req: DispatchPlanRequest):
     }
 
 
+class RetrainRequest(BaseModel):
+    id: str
+    event_type: str
+    latitude: float
+    longitude: float
+    endlatitude: float | None = 0.0
+    endlongitude: float | None = 0.0
+    event_cause: str
+    created_date: str
+    actual_duration_mins: float
+    zone: str
+    corridor: str
+    description: str | None = ""
+    priority: str
+
+def append_feedback_to_csv(data_path, feedback_item):
+    try:
+        df = pd.read_csv(data_path)
+        new_row = {}
+        for col in df.columns:
+            new_row[col] = feedback_item.get(col, None)
+        new_row['id'] = feedback_item.get('id', 'FKID999999')
+        df_new = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        df_new.to_csv(data_path, index=False)
+        print(f"[dataset] Appended row to {data_path}. Total rows: {len(df_new)}")
+    except Exception as e:
+        print(f"[dataset] Error appending to CSV: {e}")
+        raise e
+
+def retrain_model_sync():
+    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE
+    print("[retrain] Starting synchronous model training...")
+    try:
+        import sys
+        model_dir = os.path.join(BACKEND_DIR, "model")
+        if model_dir not in sys.path:
+            sys.path.append(model_dir)
+        from model_training import load_and_clean_data, engineer_features, train_impact_engine
+        
+        df_clean = load_and_clean_data(DATASET_PATH)
+        df_engineered, feature_list = engineer_features(df_clean)
+        df_scored, trained_pipeline = train_impact_engine(df_engineered, feature_list)
+        
+        # Save to dual_intake_model.pkl
+        joblib.dump(trained_pipeline, MODEL_PATH)
+        
+        # Update in-memory references
+        model = trained_pipeline
+        
+        # Rebuild T_BASE_MAP
+        t_base_df = df_clean.groupby(['zone', 'event_cause'])['duration_mins'].median().reset_index()
+        new_t_base_map = {}
+        for _, row in t_base_df.iterrows():
+            key = (str(row['zone']).strip().lower(), str(row['event_cause']).strip().lower())
+            new_t_base_map[key] = float(row['duration_mins'])
+            
+        T_BASE_MAP = new_t_base_map
+        GLOBAL_MEDIAN_T_BASE = float(df_clean['duration_mins'].median())
+        
+        print("[retrain] Model retraining complete and reloaded successfully.")
+    except Exception as e:
+        print(f"[retrain] Error during retraining: {e}")
+        raise e
+
+@app.post("/api/retrain")
+async def post_retrain(req: RetrainRequest):
+    import datetime
+    
+    try:
+        dt_str = req.created_date.replace("Z", "")
+        if "." in dt_str:
+            dt_str = dt_str.split(".")[0]
+        dt = datetime.datetime.fromisoformat(dt_str)
+    except Exception as ex:
+        print(f"[retrain] Datetime parse failed for {req.created_date}: {ex}")
+        dt = datetime.datetime.now()
+        
+    closed_dt = dt + datetime.timedelta(minutes=req.actual_duration_mins)
+    
+    created_date_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+    closed_datetime_str = closed_dt.strftime("%Y-%m-%d %H:%M:%S")
+    
+    feedback_item = {
+        "id": req.id,
+        "event_type": req.event_type,
+        "latitude": req.latitude,
+        "longitude": req.longitude,
+        "endlatitude": req.endlatitude or 0.0,
+        "endlongitude": req.endlongitude or 0.0,
+        "event_cause": req.event_cause,
+        "created_date": created_date_str,
+        "closed_datetime": closed_datetime_str,
+        "status": "closed",
+        "priority": req.priority,
+        "zone": req.zone,
+        "corridor": req.corridor,
+        "description": req.description or "",
+        "reason_breakdown": req.description or ""
+    }
+    
+    append_feedback_to_csv(DATASET_PATH, feedback_item)
+    retrain_model_sync()
+    
+    return {"status": "success"}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

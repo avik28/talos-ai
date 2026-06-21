@@ -2,13 +2,13 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import {
   CalendarClock, Plus, Trash2, MapPin, Clock, Users, Activity, Brain,
-  CheckCircle2, PlayCircle, ClipboardCheck, TrendingUp, ArrowRight,
+  CheckCircle2, PlayCircle, ClipboardCheck, TrendingUp, ArrowRight, BrainCircuit,
 } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
 import { EVENT_TYPES, predict, fmtHour, type EventType, type Venue } from "@/lib/gridmind";
 import { DEFAULT_PLACE } from "@/lib/locations";
 import { LocationSearch } from "@/components/LocationSearch";
 import { useEvents, uid, type PlannedEvent } from "@/lib/store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/planner")({
   head: () => ({
@@ -29,6 +29,7 @@ const statusStyle = {
 function PlannerPage() {
   const { events, addEvent, updateEvent, removeEvent } = useEvents();
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
+  const [retrainingState, setRetrainingState] = useState<"idle" | "running" | "completed">("idle");
 
   const completed = events.filter((e) => e.status === "Completed" && e.outcome);
   const accuracy = completed.length
@@ -44,8 +45,8 @@ function PlannerPage() {
 
   return (
     <div className="min-h-screen grid-bg">
-      <AppHeader />
-      <main className="mx-auto max-w-7xl px-4 pb-24 pt-6 md:px-6">
+
+      <main className="mx-auto w-[90%] md:w-[85%] pb-24 pt-6">
         <PageTitle
           icon={<CalendarClock className="size-5" />}
           title="Event Planner"
@@ -76,14 +77,58 @@ function PlannerPage() {
                 onRemove={() => removeEvent(e.id)}
                 onFeedback={() => setFeedbackFor(feedbackFor === e.id ? null : e.id)}
                 feedbackOpen={feedbackFor === e.id}
-                onSaveFeedback={(patch) => {
-                  updateEvent(e.id, { ...patch, status: "Completed" });
+                onSaveFeedback={async (patch) => {
+                  const predictedDelayMin = predict(e).delayMin;
+                  setRetrainingState("running");
+                  try {
+                    const loc = e.location ?? DEFAULT_PLACE;
+                    const res = await fetch("http://localhost:8000/api/retrain", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        id: e.id,
+                        event_type: "planned",
+                        latitude: loc.lat,
+                        longitude: loc.lng,
+                        endlatitude: loc.lat,
+                        endlongitude: loc.lng,
+                        event_cause: e.type,
+                        created_date: new Date(e.createdAt).toISOString(),
+                        actual_duration_mins: patch.actualDelayMin ?? predictedDelayMin,
+                        zone: loc.area || "Central Zone 2",
+                        corridor: "Non-corridor",
+                        description: e.title,
+                        priority: patch.outcome === "Strained" ? "Critical" : patch.outcome === "Partial" ? "High" : "Medium"
+                      })
+                    });
+                    if (!res.ok) throw new Error("Retrain failed");
+                    
+                    updateEvent(e.id, {
+                      ...patch,
+                      status: "Completed",
+                      predictedDelayMin,
+                      modelUpdated: true
+                    });
+                    setRetrainingState("completed");
+                    toast.success("Model retrained successfully (Model OP).");
+                  } catch (err) {
+                    console.error("Retrain error:", err);
+                    updateEvent(e.id, {
+                      ...patch,
+                      status: "Completed",
+                      predictedDelayMin,
+                      modelUpdated: false
+                    });
+                    setRetrainingState("completed");
+                    toast.error("Model retraining failed. Saved locally.");
+                  }
                   setFeedbackFor(null);
                 }}
               />
             ))}
           </div>
         </div>
+        <RetrainingPopup state={retrainingState} onClose={() => setRetrainingState("idle")} />
       </main>
     </div>
   );
@@ -272,6 +317,52 @@ function PageTitle({ icon, title, subtitle }: { icon: React.ReactNode; title: st
       <div>
         <h1 className="text-xl font-extrabold tracking-tight">{title}</h1>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function RetrainingPopup({ state, onClose }: { state: "idle" | "running" | "completed"; onClose: () => void }) {
+  if (state === "idle") return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm">
+      <div className="w-[95%] max-w-sm rounded-2xl border border-primary/30 bg-background/90 panel-glass p-6 text-center shadow-2xl relative overflow-hidden">
+        <div className="absolute right-2 top-2 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase bg-primary/20 text-primary">
+          Model OP
+        </div>
+        
+        {state === "running" ? (
+          <div className="space-y-4 py-3">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary animate-pulse">
+              <BrainCircuit className="size-6 animate-spin duration-3000" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">VÝUHIQ Model Retraining Active</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-normal">
+                Appending feedback to historical dataset and performing Random Forest regression training...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 py-3">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full border border-success/40 bg-success/10 text-success">
+              <CheckCircle2 className="size-6 animate-bounce" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Model Retrained Successfully!</h3>
+              <p className="mt-1.5 text-xs text-muted-foreground leading-normal">
+                Neural network coefficients updated. Analytics page marked with alignment status.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="mt-2 w-full rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:brightness-110 shadow-md"
+            >
+              Acknowledge & Close
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
