@@ -208,6 +208,7 @@ function DeploymentPage() {
                         </div>
                       );
                     })}
+                  </div>
                 </Panel>
 
                 <Panel title="Algorithmic Formula Inspector" icon={<Info className="size-4 text-primary" />}>
@@ -386,7 +387,7 @@ function DeploymentPage() {
                 <Panel title="Resource Conflict Resolver" icon={<Truck className="size-4" />}>
                   <p className="mb-4 text-xs text-muted-foreground">Stations are assigned by urgency and fastest ETA, not distance alone.</p>
                   <div className="space-y-3">
-                    {stationAssignments.stationAllocations.map((station) => (
+                    {stationAssignments.stationAllocations.map((station: any) => (
                       <div key={station.station} className="rounded-2xl border border-border bg-input/30 p-4">
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div>
@@ -396,7 +397,7 @@ function DeploymentPage() {
                           <span className="text-mono text-xs text-muted-foreground">Allocated</span>
                         </div>
                         <div className="space-y-2">
-                          {station.allocations.map((alloc) => (
+                          {station.allocations.map((alloc: any) => (
                             <div key={`${station.station}-${alloc.incidentId}`} className="flex items-center justify-between rounded-lg border border-border bg-background/80 px-3 py-2 text-sm">
                               <div>
                                 <p>{alloc.incidentLabel}</p>
@@ -429,7 +430,7 @@ function DeploymentPage() {
 
                 <Panel title="Smart Team Builder" icon={<Users className="size-4" />}>
                   <div className="space-y-3">
-                    {stationAssignments.teamAssignments.map((team) => (
+                    {stationAssignments.teamAssignments.map((team: any) => (
                       <div key={team.name} className="rounded-2xl border border-border bg-input/30 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-semibold">Team {team.name}</p>
@@ -437,7 +438,7 @@ function DeploymentPage() {
                         </div>
                         <p className="mt-2 text-sm font-semibold">Capabilities</p>
                         <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                          {team.capabilities.map((cap) => (
+                          {team.capabilities.map((cap: any) => (
                             <span key={cap} className="rounded-full border border-border px-2 py-1">{cap}</span>
                           ))}
                         </div>
@@ -452,7 +453,7 @@ function DeploymentPage() {
             <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
               <Panel title="One-Click Deployment Orders" icon={<MessageCircle className="size-4" />}>
                 <div className="space-y-3">
-                  {stationAssignments.deploymentOrders.map((order) => {
+                  {stationAssignments.deploymentOrders.map((order: any) => {
                     const incident = incidents.find((i) => i.id === order.incidentId);
                     const isDispatched = incident?.status === "Dispatched";
                     const isResolved = incident?.status === "Resolved";
@@ -466,7 +467,7 @@ function DeploymentPage() {
                           <span className="text-[11px] text-muted-foreground">{isResolved ? "Resolved" : isDispatched ? "Dispatched" : order.officers > 0 ? "Ready" : "Pending"}</span>
                         </div>
                         <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                          <div>Station source: <span className="font-semibold text-foreground">{order.stations.length ? order.stations.map((s) => `${s.station} (${s.officers})`).join(", ") : "No allocation"}</span></div>
+                          <div>Station source: <span className="font-semibold text-foreground">{order.stations.length ? order.stations.map((s: any) => `${s.station} (${s.officers})`).join(", ") : "No allocation"}</span></div>
                           <div>Status note: <span className="font-semibold text-foreground">{order.note}</span></div>
                         </div>
                         <button
