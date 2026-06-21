@@ -2,7 +2,6 @@ import os
 import re
 import time
 import math
-import itertools
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -498,37 +497,11 @@ def run_prediction_logic(req, rain: bool, peak_hour: bool):
     # T_base lookup
     key = (str(req.zone).strip().lower(), str(req.event_cause).strip().lower())
     t_base = T_BASE_MAP.get(key, GLOBAL_MEDIAN_T_BASE)
-
-    # --- Known-cause normalisation ---
-    # The training set only has: accident, congestion, construction, others,
-    # pot_holes, procession, protest, road_conditions, tree_fall,
-    # vehicle_breakdown, water_logging, test_demo
-    # Unknown causes (e.g. 'public_event') fall through the OHE as 'Unknown'
-    # and the model picks up long-duration construction/water-logging noise.
-    # Map them to the nearest semantically-close trained cause.
-    KNOWN_CAUSES = {
-        'accident', 'congestion', 'construction', 'others', 'pot_holes',
-        'procession', 'protest', 'road_conditions', 'tree_fall',
-        'vehicle_breakdown', 'water_logging', 'test_demo'
-    }
-    CAUSE_REMAP = {
-        'public_event': 'procession',   # crowd-movement events closest to procession
-        'event': 'procession',
-        'rally': 'procession',
-        'sports': 'procession',
-        'match': 'procession',
-        'concert': 'procession',
-        'breakdown': 'vehicle_breakdown',
-        'fire': 'accident',
-    }
-    event_cause_for_model = str(req.event_cause).strip().lower()
-    if event_cause_for_model not in KNOWN_CAUSES:
-        event_cause_for_model = CAUSE_REMAP.get(event_cause_for_model, 'others')
-
+    
     # Inference Payload
     input_data = {
         'event_type': req.event_type,
-        'event_cause': event_cause_for_model,
+        'event_cause': req.event_cause,
         'corridor': req.corridor,
         'veh_type': req.veh_type,
         'priority': req.priority,
@@ -544,15 +517,8 @@ def run_prediction_logic(req, rain: bool, peak_hour: bool):
     input_df = pd.DataFrame([input_data])
     
     try:
-        raw_prediction = float(model.predict(input_df)[0])
-        # The model was trained on incident duration data that includes long-running
-        # infrastructure causes (pot_holes avg ~2358 min, water_logging ~2145 min).
-        # Clamp to a sane operational ceiling of 480 min (8 hours) so these outliers
-        # don't pollute incident-clearance predictions.
-        s_impact = min(raw_prediction, 480.0)
-        print(f"[debug] Raw ML prediction: {raw_prediction:.2f} -> clamped: {s_impact:.2f} "
-              f"for cause={req.event_cause} (mapped={event_cause_for_model}) "
-              f"zone={req.zone} t_base={t_base:.2f} peak={is_peak_hour}")
+        s_impact = float(model.predict(input_df)[0])
+        print(f"[debug] Raw ML prediction: {s_impact:.2f} for cause={req.event_cause} zone={req.zone} t_base={t_base:.2f} peak={is_peak_hour}")
     except Exception as e:
         print(f"Prediction logic error: {e}")
         s_impact = GLOBAL_MEDIAN_T_BASE
