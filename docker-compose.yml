@@ -30,16 +30,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./datasets:/app/datasets
-      - ./ml/models:/app/ml/models
+      - ./dataset.csv:/app/dataset.csv
     environment:
       - PORT=8000
-
-  ml:
-    build:
-      context: .
-      dockerfile: docker/ml/Dockerfile
-    container_name: gridlock_ml
-    volumes:
-      - ./datasets:/app/datasets
-      - ./ml/models:/app/ml/models

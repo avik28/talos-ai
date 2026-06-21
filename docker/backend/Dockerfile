@@ -11,9 +11,8 @@ COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 # Copy dataset and backend codebase
-COPY datasets/ ./datasets/
+COPY dataset.csv ./dataset.csv
 COPY backend/ ./backend/
-COPY ml/ ./ml/
 
 EXPOSE 8000
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
