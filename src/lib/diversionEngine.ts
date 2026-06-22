@@ -881,7 +881,7 @@ export async function predictImpactWithModel(
   } catch (error) {
     console.warn("FastAPI predict-impact service failed, using local mock algorithm...", error);
     
-    // Local fallback replicating the ML model calculations
+    // Local fallback replicating the backend's event-aware scaling
     const isPeak = input.created_date 
       ? (() => {
           const hour = new Date(input.created_date).getHours();
@@ -889,20 +889,41 @@ export async function predictImpactWithModel(
         })()
       : false;
       
-    const distance = 2.0;
-    const s_impact = calculateDynamicImpactScore({
-      planned: input.event_type === "planned",
-      severity: (input.priority === "Critical" ? "Critical" : input.priority === "High" ? "High" : input.priority === "Medium" ? "Medium" : "Low") as any,
-      historicalClosureProbability: 0.25,
-      estimatedVolume: input.estimated_volume ?? (input.event_type === "planned" ? 18000 : 8000),
-      hourlyCapacity: 4000,
-      durationHr: input.duration_hr ?? 2
-    });
+    const volume = input.estimated_volume ?? 0;
+    const durationHr = input.duration_hr ?? 0;
+    const HOURLY_ROAD_CAPACITY = 4000;
     
+    let s_impact: number;
+    let officers: number;
+    
+    if (volume > 0 && durationHr > 0) {
+      const vcRatio = volume / HOURLY_ROAD_CAPACITY;
+      const durFactor = Math.min(durationHr / 4.0, 2.5);
+      const volumeImpact = vcRatio * durFactor * 12.5;
+      // Use a baseline ML modifier of 35 (global median clearance)
+      s_impact = Math.min(99, Math.max(10, Math.round(volumeImpact * (1.0 + 35 / 200.0))));
+      const impactNorm = s_impact / 100.0;
+      officers = Math.max(4, Math.ceil(4 + (volume / 1000.0) * impactNorm * 1.5));
+    } else if (volume > 0) {
+      const vcRatio = volume / HOURLY_ROAD_CAPACITY;
+      s_impact = Math.min(99, Math.max(10, Math.round(vcRatio * 15.0 + 35 * 0.3)));
+      officers = Math.max(4, Math.ceil(4 + (volume / 1000.0) * (s_impact / 100.0) * 1.5));
+    } else {
+      s_impact = calculateDynamicImpactScore({
+        planned: input.event_type === "planned",
+        severity: (input.priority === "Critical" ? "Critical" : input.priority === "High" ? "High" : input.priority === "Medium" ? "Medium" : "Low") as any,
+        historicalClosureProbability: 0.25,
+        estimatedVolume: input.estimated_volume ?? (input.event_type === "planned" ? 18000 : 8000),
+        hourlyCapacity: 4000,
+        durationHr: input.duration_hr ?? 2
+      });
+      officers = 4;
+    }
+    
+    const cross_streets = volume > 0 ? Math.max(5, Math.round(volume / 3000)) : 5;
     const strike_threshold = s_impact * 1.25;
-    const officers = Math.ceil(distance / 1.5) + 2;
-    const barricades = Math.max(2, Math.round(5 * (s_impact / 100) * 8));
-    const tow_trucks = Math.max(1, Math.round(s_impact / 33));
+    const barricades = Math.max(2, Math.round(cross_streets * (s_impact / 100) * 8));
+    const tow_trucks = Math.max(1, Math.round(s_impact / (volume > 0 ? 25 : 33)));
     
     const strike_issued = input.actual_clearance_time 
       ? input.actual_clearance_time > strike_threshold
@@ -919,7 +940,7 @@ export async function predictImpactWithModel(
         hour_of_day: input.created_date ? new Date(input.created_date).getHours() : new Date().getHours(),
         day_of_week: input.created_date ? new Date(input.created_date).getDay() : new Date().getDay(),
         is_peak_hour: isPeak ? 1 : 0,
-        impact_distance_km: distance,
+        impact_distance_km: 2.0,
         has_mech_failure: 0,
         t_base: 45.0
       }

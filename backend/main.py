@@ -405,6 +405,8 @@ class PredictRequest(BaseModel):
     created_date: str | None = None
     reason_breakdown: str | None = ""
     actual_clearance_time: float | None = None
+    estimated_volume: int | None = None
+    duration_hr: float | None = None
 
 
 class IncidentInfo(BaseModel):
@@ -516,6 +518,7 @@ def run_prediction_logic(req, rain: bool, peak_hour: bool):
     
     try:
         s_impact = float(model.predict(input_df)[0])
+        print(f"[debug] Raw ML prediction: {s_impact:.2f} for cause={req.event_cause} zone={req.zone} t_base={t_base:.2f} peak={is_peak_hour}")
     except Exception as e:
         print(f"Prediction logic error: {e}")
         s_impact = GLOBAL_MEDIAN_T_BASE
@@ -633,37 +636,72 @@ async def predict_impact(req: PredictRequest):
         is_peak = False
         
     pred_res = run_prediction_logic(req, False, is_peak)
-    s_impact = pred_res["s_impact"]
+    ml_clearance = pred_res["s_impact"]  # Raw ML output: incident clearance minutes
+    
+    # --- Event-Aware Scaling ---
+    # The ML model predicts incident clearance time. For event forecasting, we
+    # scale by the volume/capacity ratio and duration to get a meaningful impact.
+    volume = req.estimated_volume or 0
+    duration_hr = req.duration_hr or 0.0
+    
+    HOURLY_ROAD_CAPACITY = 4000  # vehicles/hr typical urban arterial capacity
+    
+    if volume > 0 and duration_hr > 0:
+        # Volume-to-capacity ratio (dimensionless, typically 0.5 - 12+)
+        vc_ratio = volume / HOURLY_ROAD_CAPACITY
+        # Duration factor: longer events compound traffic stress
+        dur_factor = min(duration_hr / 4.0, 2.5)  # normalized, cap at 2.5
+        # Combine: ML baseline * volume pressure * duration stress
+        # Scale: 12.5 converts VC*duration into a 0-100 impact score range
+        volume_impact = vc_ratio * dur_factor * 12.5
+        # Blend with ML prediction: use volume impact as primary, ML as modifier
+        s_impact = min(99.0, max(10.0, volume_impact * (1.0 + ml_clearance / 200.0)))
+    elif volume > 0:
+        # Volume only, no duration info
+        vc_ratio = volume / HOURLY_ROAD_CAPACITY
+        s_impact = min(99.0, max(10.0, vc_ratio * 15.0 + ml_clearance * 0.3))
+    else:
+        # Pure incident mode (no event volume) — use ML clearance directly
+        s_impact = min(99.0, max(10.0, ml_clearance))
+    
     strike_threshold = s_impact * 1.25
     
-    # Spatial feature calculation for resources
-    lat1 = req.latitude
-    lon1 = req.longitude
-    lat2 = req.endlatitude if req.endlatitude is not None else 0.0
-    lon2 = req.endlongitude if req.endlongitude is not None else 0.0
-    
-    if lat2 == 0.0 or lon2 == 0.0:
-        impact_distance_km = 0.0
+    # --- Resource Calculation scaled to event size ---
+    if volume > 0:
+        impact_norm = s_impact / 100.0
+        officers = max(4, math.ceil(4 + (volume / 1000.0) * impact_norm * 1.5))
+        cross_streets = max(5, round(volume / 3000))
+        barricades = max(2, round(cross_streets * impact_norm * 8))
+        tow_trucks = max(1, round(s_impact / 25.0))
     else:
-        try:
-            impact_distance_km = float(haversine_distance(lat1, lon1, lat2, lon2))
-            if np.isnan(impact_distance_km):
-                impact_distance_km = 0.0
-        except Exception:
+        # Spatial feature calculation for unplanned incidents
+        lat1 = req.latitude
+        lon1 = req.longitude
+        lat2 = req.endlatitude if req.endlatitude is not None else 0.0
+        lon2 = req.endlongitude if req.endlongitude is not None else 0.0
+        
+        if lat2 == 0.0 or lon2 == 0.0:
             impact_distance_km = 0.0
-            
-    officers = math.ceil(impact_distance_km / 1.5) + 2
-    cross_streets = 5
-    barricades = max(2, round(cross_streets * (min(100.0, s_impact) / 100.0) * 8))
-    tow_trucks = max(1, round(s_impact / 33.0))
+        else:
+            try:
+                impact_distance_km = float(haversine_distance(lat1, lon1, lat2, lon2))
+                if np.isnan(impact_distance_km):
+                    impact_distance_km = 0.0
+            except Exception:
+                impact_distance_km = 0.0
+                
+        officers = math.ceil(impact_distance_km / 1.5) + 2
+        cross_streets = 5
+        barricades = max(2, round(cross_streets * (min(100.0, s_impact) / 100.0) * 8))
+        tow_trucks = max(1, round(s_impact / 33.0))
     
     strike_issued = False
     if req.actual_clearance_time is not None:
         strike_issued = bool(req.actual_clearance_time > strike_threshold)
         
     return {
-        "s_impact": s_impact,
-        "strike_threshold": strike_threshold,
+        "s_impact": round(s_impact, 1),
+        "strike_threshold": round(strike_threshold, 1),
         "officers": officers,
         "barricades": barricades,
         "tow_trucks": tow_trucks,
