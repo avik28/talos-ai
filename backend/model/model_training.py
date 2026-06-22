@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
+from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestRegressor
@@ -98,7 +98,7 @@ def train_impact_engine(df, features):
     # Preprocessors
     categorical_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='constant', fill_value='Unknown')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
     ])
     numerical_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='median')),
@@ -111,13 +111,22 @@ def train_impact_engine(df, features):
     ])
 
     # Random Forest Pipeline
-    model = Pipeline(steps=[
+    pipeline = Pipeline(steps=[
         ('preprocessor', preprocessor),
         ('regressor', RandomForestRegressor(n_estimators=100, max_depth=15, random_state=42))
     ])
 
+    # Wrap inside TransformedTargetRegressor to log-transform target durations
+    model = TransformedTargetRegressor(
+        regressor=pipeline,
+        func=np.log1p,
+        inverse_func=np.expm1
+    )
+
     # Train the model (Using full historical data for the Bootstrapping phase)
-    model.fit(X, y)
+    # Clip duration_mins to a max of 24 hours (1440 mins) to filter out long-running database entry anomalies
+    y_clipped = np.clip(y, 0, 1440)
+    model.fit(X, y_clipped)
     
     # Generate the S_impact score for every historical event
     df['S_impact_prediction'] = model.predict(X)
@@ -149,12 +158,23 @@ def run_historical_backtest(df):
     return penalty_box
 
 if __name__ == "__main__":
-    FILE_PATH = 'Dataset.txt' 
+    import os
+    import joblib
+    
+    # Setup path dynamically relative to file location
+    MODEL_DIR = os.path.dirname(os.path.abspath(__file__))
+    BACKEND_DIR = os.path.dirname(MODEL_DIR)
+    DATASET_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "public", "dataset.csv")
+    MODEL_SAVE_PATH = os.path.join(MODEL_DIR, "dual_intake_model.pkl")
     
     try:
-        df_clean = load_and_clean_data(FILE_PATH)
+        df_clean = load_and_clean_data(DATASET_PATH)
         df_engineered, feature_list = engineer_features(df_clean)
         df_scored, impact_model = train_impact_engine(df_engineered, feature_list)
+        
+        # Save the trained model
+        print(f"Saving trained model to {MODEL_SAVE_PATH}...")
+        joblib.dump(impact_model, MODEL_SAVE_PATH)
         
         # Run the backtest and get the Day 1 Demotions
         penalty_box = run_historical_backtest(df_scored)
@@ -162,4 +182,4 @@ if __name__ == "__main__":
         print("\nSuccess! Historical Bootstrapping complete. The Lean Architecture is ready for Day 1 Live Deployment.")
         
     except FileNotFoundError:
-        print(f"Error: Could not find {FILE_PATH}.")
+        print(f"Error: Could not find {DATASET_PATH}.")

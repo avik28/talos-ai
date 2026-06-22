@@ -38,9 +38,11 @@ DATASET_PATH = os.path.join(os.path.dirname(BACKEND_DIR), "public", "dataset.csv
 model = None
 T_BASE_MAP = {}
 GLOBAL_MEDIAN_T_BASE = 35.0
+P_CLOSURE_MAP = {}
+GLOBAL_CLOSURE_PROB = 0.15
 
 def load_ml_model_and_dataset():
-    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE
+    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE, P_CLOSURE_MAP, GLOBAL_CLOSURE_PROB
     if os.path.exists(MODEL_PATH):
         try:
             print(f"[model] Loading ML model from {MODEL_PATH}...")
@@ -68,6 +70,22 @@ def load_ml_model_and_dataset():
                 
             GLOBAL_MEDIAN_T_BASE = float(df['duration_mins'].median())
             print(f"[dataset] Cached {len(T_BASE_MAP)} t_base values. Global median: {GLOBAL_MEDIAN_T_BASE:.1f} mins.")
+
+            # Compute closure probabilities for unplanned event priority mapping
+            if 'requires_road_closure' in df.columns:
+                df['is_closed'] = df['requires_road_closure'].astype(str).str.upper().map({'TRUE': 1, 'FALSE': 0, '1': 1, '0': 0})
+                df['is_closed'] = df['is_closed'].fillna(0).astype(int)
+            else:
+                df['is_closed'] = 0
+                
+            closure_df = df.groupby(['zone', 'event_cause'])['is_closed'].mean().reset_index()
+            P_CLOSURE_MAP = {}
+            for _, row in closure_df.iterrows():
+                key = (str(row['zone']).strip().lower(), str(row['event_cause']).strip().lower())
+                P_CLOSURE_MAP[key] = float(row['is_closed'])
+                
+            GLOBAL_CLOSURE_PROB = float(df['is_closed'].mean())
+            print(f"[dataset] Cached {len(P_CLOSURE_MAP)} closure probabilities. Global mean: {GLOBAL_CLOSURE_PROB:.4f}")
         except Exception as e:
             print(f"[dataset] Error loading dataset: {e}")
     else:
@@ -445,7 +463,7 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 def run_prediction_logic(req, rain: bool, peak_hour: bool):
-    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE
+    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE, P_CLOSURE_MAP, GLOBAL_CLOSURE_PROB
     
     if model is None:
         return {
@@ -522,6 +540,14 @@ def run_prediction_logic(req, rain: bool, peak_hour: bool):
     except Exception as e:
         print(f"Prediction logic error: {e}")
         s_impact = GLOBAL_MEDIAN_T_BASE
+        
+    # Scale unplanned incidents using priority weights and road closure probability (High = 0.3 as baseline)
+    if getattr(req, "event_type", "unplanned") == "unplanned":
+        priority_weights = {"low": 0.1, "medium": 0.2, "high": 0.3, "critical": 0.45}
+        w_priority = priority_weights.get(str(getattr(req, "priority", "high")).lower().strip(), 0.3)
+        p_closure = P_CLOSURE_MAP.get(key, GLOBAL_CLOSURE_PROB)
+        s_impact = s_impact * (w_priority + p_closure) / (0.3 + p_closure)
+        print(f"[debug] Scaled unplanned ML prediction to {s_impact:.2f} (priority={req.priority}, p_closure={p_closure:.4f})")
         
     return {
         "s_impact": s_impact,
@@ -646,7 +672,7 @@ async def predict_impact(req: PredictRequest):
     
     HOURLY_ROAD_CAPACITY = 4000  # vehicles/hr typical urban arterial capacity
     
-    if volume > 0 and duration_hr > 0:
+    if req.event_type == "planned" and volume > 0 and duration_hr > 0:
         # Volume-to-capacity ratio (dimensionless, typically 0.5 - 12+)
         vc_ratio = volume / HOURLY_ROAD_CAPACITY
         # Duration factor: longer events compound traffic stress
@@ -656,12 +682,12 @@ async def predict_impact(req: PredictRequest):
         volume_impact = vc_ratio * dur_factor * 12.5
         # Blend with ML prediction: use volume impact as primary, ML as modifier
         s_impact = min(99.0, max(10.0, volume_impact * (1.0 + ml_clearance / 200.0)))
-    elif volume > 0:
+    elif req.event_type == "planned" and volume > 0:
         # Volume only, no duration info
         vc_ratio = volume / HOURLY_ROAD_CAPACITY
         s_impact = min(99.0, max(10.0, vc_ratio * 15.0 + ml_clearance * 0.3))
     else:
-        # Pure incident mode (no event volume) — use ML clearance directly
+        # Pure incident mode (no event volume details or unplanned) — use ML clearance directly (which is already scaled in run_prediction_logic)
         s_impact = min(99.0, max(10.0, ml_clearance))
     
     strike_threshold = s_impact * 1.25
@@ -1280,7 +1306,7 @@ def append_feedback_to_csv(data_path, feedback_item):
         raise e
 
 def retrain_model_sync():
-    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE
+    global model, T_BASE_MAP, GLOBAL_MEDIAN_T_BASE, P_CLOSURE_MAP, GLOBAL_CLOSURE_PROB
     print("[retrain] Starting synchronous model training...")
     try:
         import sys
@@ -1308,6 +1334,22 @@ def retrain_model_sync():
             
         T_BASE_MAP = new_t_base_map
         GLOBAL_MEDIAN_T_BASE = float(df_clean['duration_mins'].median())
+        
+        # Rebuild P_CLOSURE_MAP
+        if 'requires_road_closure' in df_clean.columns:
+            df_clean['is_closed'] = df_clean['requires_road_closure'].astype(str).str.upper().map({'TRUE': 1, 'FALSE': 0, '1': 1, '0': 0})
+            df_clean['is_closed'] = df_clean['is_closed'].fillna(0).astype(int)
+        else:
+            df_clean['is_closed'] = 0
+            
+        closure_df = df_clean.groupby(['zone', 'event_cause'])['is_closed'].mean().reset_index()
+        new_closure_map = {}
+        for _, row in closure_df.iterrows():
+            key = (str(row['zone']).strip().lower(), str(row['event_cause']).strip().lower())
+            new_closure_map[key] = float(row['is_closed'])
+            
+        P_CLOSURE_MAP = new_closure_map
+        GLOBAL_CLOSURE_PROB = float(df_clean['is_closed'].mean())
         
         print("[retrain] Model retraining complete and reloaded successfully.")
     except Exception as e:
