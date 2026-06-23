@@ -162,8 +162,3 @@ This project was developed collaboratively by:
 * [Lingala Athrinandhan (@athrinandhan)](https://github.com/athrinandhan)
 * [Akhil Tummalapalli (@akhilt9)](https://github.com/akhilt9)
 
----
-
-## Hackathon
-
-Talos.ai was developed as part of the Flipkart Gridlock Hackathon, focusing on event-driven traffic congestion prediction, intelligent resource deployment, dynamic route diversion, and AI-assisted traffic management for smart city operations.
