@@ -53,6 +53,11 @@ export interface Incident {
   lesson?: string;
   predictedDelayMin?: number;
   modelUpdated?: boolean;
+  event_type?: string;
+  event_cause?: string;
+  corridor?: string;
+  veh_type?: string;
+  zone?: string;
 }
 
 const EVENTS_KEY = "gridmind.events.v1";
