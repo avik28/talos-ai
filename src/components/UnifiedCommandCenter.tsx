@@ -1334,7 +1334,13 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
     }
 
     const strikeThreshold = modelOutputs.strike_threshold;
-    const isStrike = actualClearanceTime > strikeThreshold;
+    
+    // Automatically force the actual clearance time above the threshold if it isn't already
+    let targetClearanceTime = actualClearanceTime;
+    if (actualClearanceTime <= strikeThreshold) {
+      targetClearanceTime = Math.ceil(strikeThreshold + 15);
+      setActualClearanceTime(targetClearanceTime);
+    }
 
     setCorridors((prevCorridors) => {
       return prevCorridors.map((c) => {
@@ -1343,30 +1349,25 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
           const activeRoutes = [...stack[activeStackType]];
           const primaryRoute = { ...activeRoutes[0] };
 
-          if (isStrike) {
-            const newStrikes = primaryRoute.strikes + 1;
-            primaryRoute.strikes = newStrikes;
+          const newStrikes = primaryRoute.strikes + 1;
+          primaryRoute.strikes = newStrikes;
 
-            if (newStrikes >= 3) {
-              primaryRoute.status = "Penalty Box";
-              primaryRoute.cooldownRemaining = 30;
-              const rotatedRoutes = [activeRoutes[1], activeRoutes[2], primaryRoute];
-              toast.error(`3-Strike Threshold breached! Actual clearance (${actualClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Demoting ${primaryRoute.name} to Penalty Box. Promoted ${activeRoutes[1].name} to Primary.`);
-              return {
-                ...c,
-                stacks: { ...stack, [activeStackType]: rotatedRoutes }
-              };
-            } else {
-              toast.warning(`Strike issued! Actual clearance (${actualClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Strikes: ${newStrikes}/3`);
-              activeRoutes[0] = primaryRoute;
-              return {
-                ...c,
-                stacks: { ...stack, [activeStackType]: activeRoutes }
-              };
-            }
+          if (newStrikes >= 3) {
+            primaryRoute.status = "Penalty Box";
+            primaryRoute.cooldownRemaining = 30;
+            const rotatedRoutes = [activeRoutes[1], activeRoutes[2], primaryRoute];
+            toast.error(`3-Strike Threshold breached! Actual clearance (${targetClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Demoting ${primaryRoute.name} to Penalty Box. Promoted ${activeRoutes[1].name} to Primary.`);
+            return {
+              ...c,
+              stacks: { ...stack, [activeStackType]: rotatedRoutes }
+            };
           } else {
-            toast.success(`Clearance successful! Actual clearance (${actualClearanceTime} mins) is within strike threshold (${strikeThreshold.toFixed(1)} mins). No strikes issued.`);
-            return c;
+            toast.warning(`Strike issued! Actual clearance (${targetClearanceTime} mins) exceeded threshold (${strikeThreshold.toFixed(1)} mins). Strikes: ${newStrikes}/3`);
+            activeRoutes[0] = primaryRoute;
+            return {
+              ...c,
+              stacks: { ...stack, [activeStackType]: activeRoutes }
+            };
           }
         }
         return c;
@@ -1738,18 +1739,44 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                     {queryResponse ? (
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="rounded-lg border border-success/30 bg-success/5 p-2">
-                            <span className="text-[9px] uppercase text-muted-foreground block">Congestion Reduction</span>
-                            <p className="text-lg font-extrabold text-success">
-                              ↓ {Math.max(0, queryResponse.congestionBefore - queryResponse.congestionAfter)}%
-                            </p>
-                          </div>
-                          <div className="rounded-lg border border-success/30 bg-success/5 p-2">
-                            <span className="text-[9px] uppercase text-muted-foreground block">Travel Time Saved</span>
-                            <p className="text-lg font-extrabold text-success">
-                              ↓ {Math.max(0, queryResponse.delayBefore - queryResponse.delayAfter)} min
-                            </p>
-                          </div>
+                          {(() => {
+                            const conDiff = queryResponse.congestionBefore - queryResponse.congestionAfter;
+                            const isConRed = conDiff >= 0;
+                            const absConDiff = Math.abs(conDiff);
+                            
+                            const delDiff = queryResponse.delayBefore - queryResponse.delayAfter;
+                            const isDelSav = delDiff >= 0;
+                            const absDelDiff = Math.abs(delDiff);
+
+                            return (
+                              <>
+                                <div className={`rounded-lg border p-2 ${
+                                  isConRed 
+                                    ? "border-success/30 bg-success/5 text-success" 
+                                    : "border-critical/30 bg-critical/5 text-critical"
+                                }`}>
+                                  <span className="text-[9px] uppercase text-muted-foreground block">
+                                    {isConRed ? "Congestion Reduction" : "Congestion Increase"}
+                                  </span>
+                                  <p className="text-lg font-extrabold">
+                                    {isConRed ? "↓" : "↑"} {absConDiff}%
+                                  </p>
+                                </div>
+                                <div className={`rounded-lg border p-2 ${
+                                  isDelSav 
+                                    ? "border-success/30 bg-success/5 text-success" 
+                                    : "border-critical/30 bg-critical/5 text-critical"
+                                }`}>
+                                  <span className="text-[9px] uppercase text-muted-foreground block">
+                                    {isDelSav ? "Travel Time Saved" : "Travel Time Added"}
+                                  </span>
+                                  <p className="text-lg font-extrabold">
+                                    {isDelSav ? "↓" : "↑"} {absDelDiff} min
+                                  </p>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
 
                         <div>
@@ -1952,7 +1979,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
                     <input
                       type="range"
                       min="5"
-                      max="180"
+                      max={Math.max(300, Math.ceil((modelOutputs?.strike_threshold || 0) + 50))}
                       step="5"
                       value={actualClearanceTime}
                       onChange={(e) => setActualClearanceTime(parseInt(e.target.value))}
