@@ -1,3 +1,13 @@
+---
+title: TalosAI
+emoji: 🚦
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # TalosAI 🚦
 
 ### Traffic Analysis, Learning and Optimization System
