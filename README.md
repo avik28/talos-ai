@@ -153,3 +153,17 @@ After adding the secrets, rebuild the Space.
 * AI-Assisted Command Support
 * Historical Analytics Dashboard
 * Continuous Learning Feedback Loop
+## Contributors
+
+This project was developed collaboratively by:
+
+* [Sai Avinash Bharadwaj Komaragiri (@avik28)](https://github.com/avik28)
+* [Neha Mohanasundaram (@nehamohan24)](https://github.com/nehamohan24)
+* [Lingala Athrinandhan (@athrinandhan)](https://github.com/athrinandhan)
+* [Akhil Tummalapalli (@akhilt9)](https://github.com/akhilt9)
+
+---
+
+## Hackathon
+
+Talos.ai was developed as part of the Flipkart Gridlock Hackathon, focusing on event-driven traffic congestion prediction, intelligent resource deployment, dynamic route diversion, and AI-assisted traffic management for smart city operations.
