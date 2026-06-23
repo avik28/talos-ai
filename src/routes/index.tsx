@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export default function LandingPage() {
   useEffect(() => {
-    document.title = "VYUHIQ — Strategic Traffic Command & Resource Optimization Platform";
+    document.title = "TalosAI — Strategic Traffic Command & Resource Optimization Platform";
   }, []);
   const cards = [
     {
@@ -79,7 +79,7 @@ export default function LandingPage() {
                 Forecast, visualize and <span className="text-amber-500">res</span><span className="text-sky-500">pond</span> to traffic events before they choke the city.
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground max-w-3xl mt-3 font-medium leading-relaxed">
-                VyuhIQ predicts the impact of closures, crowds, and weather, suggesting optimal resource dispatches and dynamic diversions to mitigate urban gridlock.
+                TalosAI predicts the impact of closures, crowds, and weather, suggesting optimal resource dispatches and dynamic diversions to mitigate urban gridlock.
               </p>
             </div>
 

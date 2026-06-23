@@ -67,9 +67,9 @@ export function Sidebar({ expanded, onToggle }: SidebarProps) {
               </div>
               <div>
                 <h1 className="text-sm font-extrabold leading-tight tracking-tight bg-clip-text bg-gradient-to-r from-primary to-accent">
-                  VyuhIQ
+                  TalosAI
                 </h1>
-                <p className="text-[9px] text-muted-foreground font-semibold">Strategic Traffic Intelligence & Resource Optimization Platform</p>
+                <p className="text-[9px] text-muted-foreground font-semibold">Traffic Analysis, Learning and Optimization System</p>
               </div>
             </Link>
             <button

@@ -36,7 +36,7 @@ const COLORS = ["#3b82f6", "#ef4444", "#eab308", "#10b981", "#8b5cf6", "#6b7280"
 
 export default function AnalyticsPage() {
   useEffect(() => {
-    document.title = "Traffic Analytics — VYUHIQ";
+    document.title = "Traffic Analytics — TalosAI";
   }, []);
   const { events } = useEvents();
   const { incidents } = useIncidents();

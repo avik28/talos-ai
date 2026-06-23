@@ -31,7 +31,7 @@ const statusStyle = {
 
 export default function IncidentsPage() {
   useEffect(() => {
-    document.title = "Incident Reporting — VYUHIQ";
+    document.title = "Incident Reporting — TalosAI";
   }, []);
   const { incidents, addIncident, updateIncident, removeIncident } = useIncidents();
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
@@ -402,7 +402,7 @@ function RetrainingPopup({ state, onClose }: { state: "idle" | "running" | "comp
               <BrainCircuit className="size-6 animate-spin duration-3000" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">VÝUHIQ Model Retraining Active</h3>
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">TalosAI Model Retraining Active</h3>
               <p className="mt-1.5 text-xs text-muted-foreground leading-normal">
                 Appending feedback to historical dataset and performing Random Forest regression training...
               </p>

@@ -74,7 +74,7 @@ function eventResourceProfile(event: PlannedEvent) {
 
 export default function DeploymentPage() {
   useEffect(() => {
-    document.title = "Deployment Engine — VYUHIQ";
+    document.title = "Deployment Engine — TalosAI";
   }, []);
   const [stations, setStations] = useState(STATIONS);
   const { incidents, updateIncident } = useIncidents();

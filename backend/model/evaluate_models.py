@@ -1,5 +1,5 @@
 """
-VyuhIQ GridLock - Model Performance Evaluation
+TalosAI GridLock - Model Performance Evaluation
 Compares Random Forest vs Gradient Boosting on the historical incident dataset.
 Outputs: R2, MAE, RMSE, MAPE, classification accuracy, and feature importances.
 """

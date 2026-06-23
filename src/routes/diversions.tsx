@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 export default function DiversionsRoute() {
   useEffect(() => {
-    document.title = "Dynamic Diversion Generator — VYUHIQ";
+    document.title = "Dynamic Diversion Generator — TalosAI";
   }, []);
   
   return <UnifiedCommandCenter defaultTab="sandbox" />;
