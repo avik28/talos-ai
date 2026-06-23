@@ -1,4 +1,4 @@
-# Talos.ai 🚦
+# TalosAI 🚦
 
 ### Traffic Analysis, Learning and Optimization System
 
@@ -7,13 +7,13 @@
 **Try the application here:**
 https://avik28-talos-ai.hf.space/
 
-> Experience Talos.ai in action by exploring real-time traffic simulations, intelligent resource deployment, AI-powered action plans, and event-driven congestion management.
+> Experience TalosAI in action by exploring real-time traffic simulations, intelligent resource deployment, AI-powered action plans, and event-driven congestion management.
 
 ---
 
 ## 🌟 Overview
 
-Talos.ai is a state-of-the-art event-driven traffic command and resource optimization platform designed for the Bengaluru City Traffic Police. Built on a hybrid architecture of machine learning and spatial network routing, Talos.ai predicts, visualizes, and mitigates urban gridlocks before they impact the city.
+TalosAI is a state-of-the-art event-driven traffic command and resource optimization platform designed for the Bengaluru City Traffic Police. Built on a hybrid architecture of machine learning and spatial network routing, TalosAI predicts, visualizes, and mitigates urban gridlocks before they impact the city.
 
 The platform combines predictive analytics, traffic simulation, intelligent resource allocation, and AI-assisted decision support to help authorities proactively manage urban congestion.
 

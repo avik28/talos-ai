@@ -9,7 +9,7 @@ import { predictImpactWithModel } from "@/lib/diversionEngine";
 
 export default function ForecastsPage() {
   useEffect(() => {
-    document.title = "AI Traffic Forecasting — Talos.ai";
+    document.title = "AI Traffic Forecasting — TalosAI";
   }, []);
   const { incidents } = useIncidents();
   const { events } = useEvents();
@@ -672,7 +672,7 @@ function CitizenAlert({ input, p }: { input: PredictionInput; p: Prediction }) {
             <p className="font-semibold text-success">{p.diversions[0].name.replace(/^Route \w+ · /, "")}</p>
           </div>
         </div>
-        <p className="mt-3 text-[10px] text-muted-foreground">— Bengaluru Traffic Police · Talos.ai</p>
+        <p className="mt-3 text-[10px] text-muted-foreground">— Bengaluru Traffic Police · TalosAI</p>
       </div>
     </Card>
   );

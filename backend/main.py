@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
     load_ml_model_and_dataset()
     yield
 
-app = FastAPI(title="Talos.ai Routing Engine Backend", lifespan=lifespan)
+app = FastAPI(title="TalosAI Routing Engine Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1438,7 +1438,7 @@ async def post_generate_action_plan(req: ActionPlanRequest):
         )
     
     system_prompt = (
-        "You are Talos.ai, a senior traffic-operations commander for the Bengaluru City Traffic Police. "
+        "You are TalosAI, a senior traffic-operations commander for the Bengaluru City Traffic Police. "
         "Write a concise, decisive, field-ready EVENT ACTION PLAN that an officer can execute immediately. "
         "Use plain text only (no markdown symbols like # or *). Use UPPERCASE section headers and short dash bullets. "
         "Include these sections in order: SITUATION, OBJECTIVE, DEPLOYMENT, TRAFFIC CONTROL, DIVERSIONS, EMERGENCY CORRIDOR, "

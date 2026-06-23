@@ -701,7 +701,7 @@ export function UnifiedCommandCenter({ defaultTab }: UnifiedCommandCenterProps) 
       : ""
   );
   const [consoleMessages, setConsoleMessages] = useState<Array<{ sender: "user" | "system", text: string }>>([
-    { sender: "system", text: "Talos.ai Diversion CLI v1.0. Ready. Type queries to override simulation (e.g. 'Deploy 12 officers')." }
+    { sender: "system", text: "TalosAI Diversion CLI v1.0. Ready. Type queries to override simulation (e.g. 'Deploy 12 officers')." }
   ]);
   const [queryResponse, setQueryResponse] = useState<WhatIfResponse | null>(null);
 

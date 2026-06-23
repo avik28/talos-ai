@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export default function LandingPage() {
   useEffect(() => {
-    document.title = "Talos.ai — Traffic Analysis, Learning and Optimization System";
+    document.title = "TalosAI — Traffic Analysis, Learning and Optimization System";
   }, []);
   const cards = [
     {
@@ -76,10 +76,10 @@ export default function LandingPage() {
                 <span>Event-Driven Congestion Intelligence</span>
               </div>
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight max-w-4xl">
-                Forecast, visualize and <span className="text-amber-500">res</span><span className="text-sky-500">pond</span> to traffic events with <span className="text-primary">Talos.ai</span>.
+                Forecast, visualize and <span className="text-amber-500">res</span><span className="text-sky-500">pond</span> to traffic events with <span className="text-primary">TalosAI</span>.
               </h1>
               <p className="text-xs md:text-sm text-muted-foreground max-w-3xl mt-3 font-medium leading-relaxed">
-                Talos.ai (Traffic Analysis, Learning and Optimization System) is an event-driven congestion intelligence platform that predicts the impact of closures, crowds, and weather to recommend optimal dispatches and dynamic routing.
+                TalosAI (Traffic Analysis, Learning and Optimization System) is an event-driven congestion intelligence platform that predicts the impact of closures, crowds, and weather to recommend optimal dispatches and dynamic routing.
               </p>
             </div>
 
